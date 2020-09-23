@@ -636,7 +636,7 @@ void Nuclide::calculate_xs(int i_sab, int i_log_union, double sab_frac, Particle
       int i_high = grid.grid_index[i_log_union + 1] + 1;
 
       // Perform binary search over reduced range
-      i_grid = i_low + lower_bound_index(&grid.energy[i_low], &grid.energy[i_high], p.E_);
+      i_grid = i_low + lower_bound_index_log(&grid.energy[i_low], &grid.energy[i_high], p.E_);
     }
 
     // check for rare case where two energy points are the same

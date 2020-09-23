@@ -234,7 +234,7 @@ double CoherentElasticXS::operator()(double E) const
     // section will be zero
     return 0.0;
   } else {
-    auto i_grid = lower_bound_index(bragg_edges_.begin(), bragg_edges_.end(), E);
+    auto i_grid = lower_bound_index_linear(bragg_edges_.begin(), bragg_edges_.end(), E);
     return factors_[i_grid] / E;
   }
 }
