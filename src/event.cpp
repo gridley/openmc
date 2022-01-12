@@ -262,8 +262,6 @@ void process_collision_events()
 
 unsigned process_refill_events(unsigned remaining_work, unsigned source_offset)
 {
-  fatal_error("TODO add CPU implementation of refill event!!");
-
 #ifdef __CUDACC__
   simulation::time_event_refill.start();
 
@@ -303,6 +301,7 @@ unsigned process_refill_events(unsigned remaining_work, unsigned source_offset)
 
   simulation::time_event_refill.stop();
 #else
+  fatal_error("TODO add CPU implementation of event-mode refill");
   unsigned num_particles_refilled = 0;
 #endif
   return num_particles_refilled;

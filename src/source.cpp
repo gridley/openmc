@@ -386,32 +386,46 @@ void initialize_source()
 {
   write_message("Initializing source particles...", 5);
 
-  if (simulation::work_per_rank > settings::max_particles_in_flight)
-    fatal_error("TODO fix initialize_source to work with different number of "
-                "particles in flight");
+  // Generation of source sites from specified distribution in user input
 
-  // Generation source sites from specified distribution in user input
-  #pragma omp parallel for
-  for (int64_t i = 0; i < simulation::work_per_rank; ++i) {
+  // We only have simulation::max_particles_in_flight slots available in the
+  // event-based array. So, to fill a bank larger than that in parallel, we
+  // need to do a few outer iterations.
+  int64_t outer_iterations =
+    simulation::work_per_rank / settings::max_particles_in_flight + 1;
+  int64_t current_work_index = 0;
+  int64_t work_remaining = simulation::work_per_rank;
+  for (int64_t outer = 0; outer < outer_iterations; ++outer) {
 
-    // This saves some time re-allocating memory if we're
-    // doing a structure-of-array particle data layout.
-    // sample_external_source is able to use the pre-allocated
-    // space here.
-    Particle* p = nullptr;
+#pragma omp parallel for
+    for (int64_t j = 0; j < std::min((int64_t)settings::max_particles_in_flight,
+                              work_remaining);
+         ++j) {
+      int64_t i = current_work_index + j;
+
+      // This saves some time re-allocating memory if we're
+      // doing a structure-of-array particle data layout.
+      // sample_external_source is able to use the pre-allocated
+      // space here.
+      Particle* p = nullptr;
 #ifdef __CUDACC__
-    Particle this_part(i);
-    this_part.clear(); // required for find_cell calls
-    p = &this_part;
+      Particle this_part(j);
+      this_part.clear(); // required for find_cell calls
+      p = &this_part;
 #endif
 
-    // initialize random number seed
-    int64_t id = simulation::total_gen*settings::n_particles +
-      simulation::work_index[mpi::rank] + i + 1;
-    uint64_t seed = init_seed(id, STREAM_SOURCE);
+      // initialize random number seed
+      int64_t id = simulation::total_gen * settings::n_particles +
+                   simulation::work_index[mpi::rank] + i + 1;
+      uint64_t seed = init_seed(id, STREAM_SOURCE);
 
-    // sample external source distribution
-    simulation::source_bank[i] = sample_external_source(&seed, p);
+      // sample external source distribution
+      simulation::source_bank[i] = sample_external_source(&seed, p);
+    }
+    current_work_index +=
+      std::min((int64_t)settings::max_particles_in_flight, work_remaining);
+    work_remaining -=
+      std::min((int64_t)settings::max_particles_in_flight, work_remaining);
   }
 
   // Write out initial source
