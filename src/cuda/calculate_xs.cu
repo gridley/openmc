@@ -1,8 +1,272 @@
+
+#include <thrust/complex.h>
+
 #include "openmc/cuda/calculate_xs.h"
 #include "openmc/geometry.h"         // find_cell
 #include "openmc/reaction_product.h" // EmissionMode
 #include "openmc/search.h"
 #include "openmc/settings.h" // BLOCKSIZE
+
+#include "openmc/wmp.h" // TODO remove?
+
+// TODO potentially load p.sqrtkT() to a register
+
+__device__ thrust::complex<double> zpf8h_faddeeva(thrust::complex<double> z)
+{
+  double flip_real_part =
+    1.0; // TODO test sign flip with bit magic. Just set mask based on..
+  if (z.imag() < 0.0) {
+    flip_real_part = -1.0;
+    z.imag(-z.imag()); // bit magic?
+  }
+  z.imag(z.imag() + 0.9);
+  const auto zz = z * z;
+
+  const double z_r = z.real();
+  const double z_i = z.imag();
+  const double zz_r = zz.real();
+  const double zz_i = zz.imag();
+
+  constexpr double aa0_r = 11.7559071436993;
+  constexpr double aa1_i = -32.310199761603;
+  constexpr double aa2_r = -21.9357456686406;
+  constexpr double aa3_i = 31.490536152863;
+  constexpr double aa4_r = 6.75847413957232;
+  constexpr double aa5_i = -8.07354660639634;
+  constexpr double aa6_r = -0.507771291744591;
+  constexpr double aa7_i = 0.564189504758109;
+
+  constexpr double bb0_r = 6.5625;
+  constexpr double bb1_r = -52.5;
+  constexpr double bb2_r = 52.5;
+  constexpr double bb3_r = -14.0;
+
+  const double num_re =
+    (((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_i) +
+            aa4_r) *
+             z_r -
+           ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_r) *
+             z_i) *
+            z_r -
+          (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_r) +
+            aa3_i) *
+            z_i) +
+         aa2_r) *
+          z_r -
+        (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_i) +
+            aa4_r) *
+             z_r -
+           ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_r) *
+             z_i) *
+            z_i +
+          (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_r) +
+            aa3_i) *
+            z_r) *
+          z_i) *
+         z_r -
+       ((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_i) *
+              z_r -
+            (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_i) +
+                aa4_r) *
+                 z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_r) *
+                 z_r) +
+              aa3_i) *
+              z_i) +
+           aa2_r) *
+            z_i +
+          (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_i) *
+              z_i +
+            (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_i) +
+                aa4_r) *
+                 z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_r) *
+                 z_r) +
+              aa3_i) *
+              z_r) *
+            z_r) +
+         aa1_i) *
+         z_i) +
+      aa0_r);
+  const double num_im =
+    ((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_i) +
+           aa4_r) *
+            z_r -
+          ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_r) *
+            z_i) *
+           z_r -
+         (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_r) +
+           aa3_i) *
+           z_i) +
+        aa2_r) *
+         z_r -
+       (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_i) +
+           aa4_r) *
+            z_r -
+          ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_r) *
+            z_i) *
+           z_i +
+         (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_r) +
+           aa3_i) *
+           z_r) *
+         z_i) *
+        z_i +
+      ((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_i) *
+             z_r -
+           (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_i) +
+               aa4_r) *
+                z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_r) *
+                z_r) +
+             aa3_i) *
+             z_i) +
+          aa2_r) *
+           z_i +
+         (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_i) *
+             z_i +
+           (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_i) +
+               aa4_r) *
+                z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_r) *
+                z_r) +
+             aa3_i) *
+             z_r) *
+           z_r) +
+        aa1_i) *
+        z_r);
+  const double den_re =
+    (((((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_r -
+         ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_i) +
+        bb1_r) *
+         zz_r -
+       ((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_i +
+         ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_r) *
+         zz_i) +
+      bb0_r);
+  const double den_im =
+    ((((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_r -
+        ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_i) +
+       bb1_r) *
+        zz_i +
+      ((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_i +
+        ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_r) *
+        zz_r);
+  const double modulus = den_re * den_re + den_im * den_im;
+  return {flip_real_part * (num_re * den_re + num_im * den_im) / modulus,
+    (num_im * den_re - num_re * den_im) / modulus};
+}
 
 namespace openmc {
 namespace gpu {
@@ -433,18 +697,124 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
       micro.last_sqrtkT = p.sqrtkT();
 
       if (nuclide.multipole_ && (E >= nuclide.multipole_->E_min_ && E <= nuclide.multipole_->E_max_)) {
+        const auto& mp = *nuclide.multipole_;
+        constexpr double gSQRT_PI = 1.7724538509055159927;
+
         double sig_s;
         double sig_a;
         double sig_f;
         
         // calculate multipole stuff...
+        const double sqrtE = std::sqrt(E);
+        const double invE = 1.0 / E;
+        const unsigned i_window =
+          std::min(static_cast<unsigned>(mp.window_info_.size() - 1),
+            static_cast<unsigned>(
+              (sqrtE - std::sqrt(mp.E_min_)) * mp.inv_spacing_));
+        const auto& window {mp.window_info_[i_window]};
+
+        if (p.sqrtkT() > 0.0 && window.broaden_poly) {
+          // Broaden the curvefit.
+          double dopp = mp.sqrt_awr_ / p.sqrtkT();
+          array<double, WindowedMultipole::MAX_POLY_COEFFICIENTS>
+            broadened_polynomials;
+
+          // Broaden WMP polynomials (TODO replace with recursive version)
+          const double beta = sqrtE * dopp;
+          const double half_inv_dopp2 = 0.5 / (dopp * dopp);
+          const double quarter_inv_dopp4 = half_inv_dopp2 * half_inv_dopp2;
+          double erf_beta;
+          double exp_m_beta2;
+
+          if (beta > 6.0) {
+            // Save time, ERF(6) is 1 to machine precision.
+            // beta/sqrtpi*exp(-beta**2) is also approximately 1 machine
+            // epsilon.
+            erf_beta = 1.;
+            exp_m_beta2 = 0.;
+          } else {
+            erf_beta = std::erf(beta);
+            exp_m_beta2 = std::exp(-beta * beta);
+          }
+
+          broadened_polynomials[0] = erf_beta / E;
+          broadened_polynomials[1] = 1. / sqrtE;
+          broadened_polynomials[2] =
+            broadened_polynomials[0] * (half_inv_dopp2 + E) +
+            exp_m_beta2 / (beta * gSQRT_PI);
+          broadened_polynomials[3] =
+            broadened_polynomials[1] * (E + 3.0 * half_inv_dopp2);
+          const int n = mp.fit_order_ + 1;
+          for (int i = 1; i < n - 3; i++) {
+            double ip1_dbl = i + 1;
+            broadened_polynomials[i + 3] =
+              -broadened_polynomials[i - 1] * (ip1_dbl - 1.) * ip1_dbl *
+                quarter_inv_dopp4 +
+              broadened_polynomials[i + 1] *
+                (E + (1. + 2. * ip1_dbl) * half_inv_dopp2);
+          }
+
+          for (int i_poly = 0; i_poly < mp.fit_order_ + 1; ++i_poly) {
+            sig_s += mp.curvefit_(i_window, i_poly).fit_s *
+                     broadened_polynomials[i_poly];
+            sig_a += mp.curvefit_(i_window, i_poly).fit_a *
+                     broadened_polynomials[i_poly];
+            if (mp.fissionable_) {
+              sig_f += mp.curvefit_(i_window, i_poly).fit_f *
+                       broadened_polynomials[i_poly];
+            }
+          }
+        } else {
+          // Evaluate as if it were a polynomial
+          double temp = invE;
+          for (int i_poly = 0; i_poly < mp.fit_order_ + 1; ++i_poly) {
+            sig_s += mp.curvefit_(i_window, i_poly).fit_s * temp;
+            sig_a += mp.curvefit_(i_window, i_poly).fit_a * temp;
+            if (mp.fissionable_) {
+              sig_f += mp.curvefit_(i_window, i_poly).fit_f * temp;
+            }
+            temp *= sqrtE;
+          }
+        }
+
+        // Add in pole contributions
+        if (p.sqrtkT() == 0.0) {
+          for (int i_pole = window.index_start; i_pole <= window.index_end;
+               ++i_pole) {
+            const thrust::complex<double> minus_i(0.0, -1.0);
+            const thrust::complex<double> psi_chi =
+              minus_i / (mp.data_[i_pole].ea - sqrtE);
+            const thrust::complex<double> c_temp = psi_chi * invE;
+            sig_s += (mp.data_[i_pole].rs * c_temp).real();
+            sig_a += (mp.data_[i_pole].ra * c_temp).real();
+            if (mp.fissionable_) {
+              sig_f += (mp.data_[i_pole].rf * c_temp).real();
+            }
+          }
+        } else {
+          const double dopp = mp.sqrt_awr_ / p.sqrtkT();
+          for (int i_pole = window.index_start; i_pole <= window.index_end;
+               ++i_pole) {
+            const thrust::complex<double> z =
+              (sqrtE - mp.data_[i_pole].ea) * dopp;
+            const thrust::complex<double> w_val =
+              zpf8h_faddeeva(z) * dopp * invE * gSQRT_PI;
+            sig_s += (mp.data_[i_pole].rs * w_val).real();
+            sig_a += (mp.data_[i_pole].ra * w_val).real();
+            if (mp.fissionable_) {
+              sig_f += (mp.data_[i_pole].rf * w_val).real();
+            }
+          }
+        }
 
         micro.total = sig_s + sig_a;
         micro.elastic = sig_s;
         micro.absorption = sig_a;
         micro.fission = sig_f;
         micro.nu_fission =
-          nuclide.fissionable_ ? sig_f * nuclide.nu(p.E, EmissionMode::total) : 0.0;
+          nuclide.fissionable_
+            ? micro.fission * nuclide.nu(E, EmissionMode::total)
+            : 0.0;
       } else { // lookup pointwise XS
 
         // Find the appropriate temperature index. why would someone use

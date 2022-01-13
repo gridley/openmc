@@ -763,6 +763,257 @@ xsfloat spline_integrate(int n, const xsfloat x[], const xsfloat y[],
   return s;
 }
 
+std::complex<double> zpf8h(std::complex<double> z)
+{
+  z.imag(z.imag() + 0.9);
+  const auto zz = z * z;
+
+  const double z_r = z.real();
+  const double z_i = z.imag();
+  const double zz_r = zz.real();
+  const double zz_i = zz.imag();
+
+  constexpr double aa0_r = 11.7559071436993;
+  constexpr double aa1_i = -32.310199761603;
+  constexpr double aa2_r = -21.9357456686406;
+  constexpr double aa3_i = 31.490536152863;
+  constexpr double aa4_r = 6.75847413957232;
+  constexpr double aa5_i = -8.07354660639634;
+  constexpr double aa6_r = -0.507771291744591;
+  constexpr double aa7_i = 0.564189504758109;
+
+  constexpr double bb0_r = 6.5625;
+  constexpr double bb1_r = -52.5;
+  constexpr double bb2_r = 52.5;
+  constexpr double bb3_r = -14.0;
+
+  const double num_re =
+    (((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_i) +
+            aa4_r) *
+             z_r -
+           ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_r) *
+             z_i) *
+            z_r -
+          (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_r) +
+            aa3_i) *
+            z_i) +
+         aa2_r) *
+          z_r -
+        (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_i) +
+            aa4_r) *
+             z_r -
+           ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+               z_r) *
+             z_i) *
+            z_i +
+          (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_i +
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_r) +
+            aa3_i) *
+            z_r) *
+          z_i) *
+         z_r -
+       ((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_i) *
+              z_r -
+            (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_i) +
+                aa4_r) *
+                 z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_r) *
+                 z_r) +
+              aa3_i) *
+              z_i) +
+           aa2_r) *
+            z_i +
+          (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_i) +
+              aa4_r) *
+               z_r -
+             ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                 aa5_i) *
+                 z_r) *
+               z_i) *
+              z_i +
+            (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_i) +
+                aa4_r) *
+                 z_i +
+               ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                 ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                   aa5_i) *
+                   z_r) *
+                 z_r) +
+              aa3_i) *
+              z_r) *
+            z_r) +
+         aa1_i) *
+         z_i) +
+      aa0_r);
+  const double num_im =
+    ((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_i) +
+           aa4_r) *
+            z_r -
+          ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_r) *
+            z_i) *
+           z_r -
+         (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_r) +
+           aa3_i) *
+           z_i) +
+        aa2_r) *
+         z_r -
+       (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_i) +
+           aa4_r) *
+            z_r -
+          ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+              z_r) *
+            z_i) *
+           z_i +
+         (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_i +
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_r) +
+           aa3_i) *
+           z_r) *
+         z_i) *
+        z_i +
+      ((((((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_i) *
+             z_r -
+           (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_i) +
+               aa4_r) *
+                z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_r) *
+                z_r) +
+             aa3_i) *
+             z_i) +
+          aa2_r) *
+           z_i +
+         (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_i) +
+             aa4_r) *
+              z_r -
+            ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) + aa5_i) *
+                z_r) *
+              z_i) *
+             z_i +
+           (((((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_r -
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_i) +
+               aa4_r) *
+                z_i +
+              ((((-aa7_i * z_i) + aa6_r) * z_r - (aa7_i * z_r) * z_i) * z_i +
+                ((((-aa7_i * z_i) + aa6_r) * z_i + (aa7_i * z_r) * z_r) +
+                  aa5_i) *
+                  z_r) *
+                z_r) +
+             aa3_i) *
+             z_r) *
+           z_r) +
+        aa1_i) *
+        z_r);
+  const double den_re =
+    (((((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_r -
+         ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_i) +
+        bb1_r) *
+         zz_r -
+       ((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_i +
+         ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_r) *
+         zz_i) +
+      bb0_r);
+  const double den_im =
+    ((((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_r -
+        ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_i) +
+       bb1_r) *
+        zz_i +
+      ((((zz_r + bb3_r) * zz_r - zz_i * zz_i) + bb2_r) * zz_i +
+        ((zz_r + bb3_r) * zz_i + zz_i * zz_r) * zz_r) *
+        zz_r);
+  const double modulus = den_re * den_re + den_im * den_im;
+  return {(num_re * den_re + num_im * den_im) / modulus,
+    (num_im * den_re - num_re * den_im) / modulus};
+}
+
 std::complex<double> faddeeva(std::complex<double> z)
 {
   // Technically, the value we want is given by the equation:
@@ -779,8 +1030,7 @@ std::complex<double> faddeeva(std::complex<double> z)
   // For imag(z) < 0, w_int(z) = -conjg(w_fun(conjg(z)))
 
   // Note that Faddeeva::w will interpret zero as machine epsilon
-  return z.imag() > 0.0 ? Faddeeva::w(z) :
-    -std::conj(Faddeeva::w(std::conj(z)));
+  return z.imag() > 0.0 ? zpf8h(z) : -std::conj(zpf8h(std::conj(z)));
 }
 
 std::complex<double> w_derivative(std::complex<double> z, int order)

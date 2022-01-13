@@ -74,7 +74,7 @@ constexpr double EXTSRC_REJECT_FRACTION {0.05};
 
 // TODO: replace with <numbers> when we go for C++20
 constexpr double PI {3.141592653589793238462643383279502884L};
-const double SQRT_PI {std::sqrt(PI)};
+constexpr double SQRT_PI {1.7724538509055159927};
 constexpr double INFTY {std::numeric_limits<double>::max()};
 constexpr xsfloat XSINFTY {std::numeric_limits<xsfloat>::max()};
 constexpr xsfloat XSZERO = 0.0;

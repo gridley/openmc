@@ -7,8 +7,21 @@
 #include <complex>
 #include <tuple>
 
+#ifdef __CUDACC__
+#include <thrust/complex.h>
+namespace openmc {
+typedef thrust::complex<double> complx;
+}
+#else
+#include <complex>
+namespace openmc {
+typedef std::complex<double> complx;
+}
+#endif
+
 #include "openmc/array.h"
 #include "openmc/string.h"
+#include "openmc/tensor.h"
 #include "openmc/vector.h"
 
 namespace openmc {
@@ -76,8 +89,23 @@ public:
   int fit_order_; //!< Order of the fit
   bool fissionable_; //!< Is the nuclide fissionable?
   vector<WindowInfo> window_info_;  // Information about a window
-  xt::xtensor<double, 3> curvefit_; // Curve fit coefficients (window, poly order, reaction)
-  xt::xtensor<std::complex<double>, 2> data_; //!< Poles and residues
+
+  struct CurveFitData {
+    double fit_s; // scat
+    double fit_a; // abs
+    double fit_f; // fiss
+  };
+
+  struct PoleData {
+    complx ea; // pole
+    complx rs; // scat residue
+    complx ra; // abs residue
+    complx rf; // fission residue
+  };
+
+  tensor<CurveFitData, 2>
+    curvefit_; // Curve fit coefficients (window, poly order, reaction)
+  vector<PoleData> data_; //!< Poles and residues
 
   // Constant data
   static constexpr int MAX_POLY_COEFFICIENTS =

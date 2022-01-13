@@ -33,8 +33,21 @@ WindowedMultipole::WindowedMultipole(hid_t group)
 
   // Read the "data" array.  Use its shape to figure out the number of poles
   // and residue types in this data.
-  read_dataset(group, "data", data_);
-  int n_residues = data_.shape()[1] - 1;
+  xt::xtensor<std::complex<double>, 2> data_tmp;
+  read_dataset(group, "data", data_tmp);
+  int n_residues = data_tmp.shape()[1] - 1;
+
+  // Read poles into *better* data format
+  unsigned n_poles = data_tmp.shape()[0];
+  data_.resize(n_poles);
+
+  // Read poles to GPU-compatible struct
+  for (int pole = 0; pole < data_tmp.shape()[0]; ++pole) {
+    data_[pole].ea = data_tmp(pole, 0);
+    data_[pole].rs = data_tmp(pole, 1);
+    data_[pole].ra = data_tmp(pole, 2);
+    data_[pole].rf = data_tmp(pole, 3);
+  }
 
   // Check to see if this data includes fission residues.
   fissionable_ = (n_residues == 3);
@@ -55,12 +68,27 @@ WindowedMultipole::WindowedMultipole(hid_t group)
   }
 
   // Read the "curvefit" array.
-  read_dataset(group, "curvefit", curvefit_);
-  if (n_windows != curvefit_.shape()[0]) {
+  xt::xtensor<double, 3>
+    curvefit_tmp; // Curve fit coefficients (window, poly order, reaction)
+  read_dataset(group, "curvefit", curvefit_tmp);
+  if (n_windows != curvefit_tmp.shape()[0]) {
     fatal_error("curvefit array shape is not consistent with the windows "
       "array shape in WMP library for " + name_ + ".");
   }
-  fit_order_ = curvefit_.shape()[1] - 1;
+  fit_order_ = curvefit_tmp.shape()[1] - 1;
+
+  // Copy curvefit data into GPU-compatible memory
+  std::vector<tensor<CurveFitData, 2>::size_type> cf_shape(2);
+  cf_shape[0] = curvefit_tmp.shape()[0];
+  cf_shape[1] = curvefit_tmp.shape()[1];
+  curvefit_.resize(cf_shape);
+  for (int window = 0; window < n_windows; ++window) {
+    for (int poly_comp = 0; poly_comp < curvefit_tmp.shape()[1]; ++poly_comp) {
+      curvefit_(window, poly_comp).fit_s = curvefit_tmp(window, poly_comp, 0);
+      curvefit_(window, poly_comp).fit_a = curvefit_tmp(window, poly_comp, 1);
+      curvefit_(window, poly_comp).fit_f = curvefit_tmp(window, poly_comp, 2);
+    }
+  }
 
   // Check the code is compiling to work with sufficiently high fit order
   if (fit_order_ + 1 > MAX_POLY_COEFFICIENTS) {
@@ -110,20 +138,23 @@ WindowedMultipole::evaluate(double E, double sqrtkT) const
     array<double, MAX_POLY_COEFFICIENTS> broadened_polynomials;
     broaden_wmp_polynomials(E, dopp, fit_order_ + 1, broadened_polynomials.data());
     for (int i_poly = 0; i_poly < fit_order_ + 1; ++i_poly) {
-      sig_s += curvefit_(i_window, i_poly, FIT_S) * broadened_polynomials[i_poly];
-      sig_a += curvefit_(i_window, i_poly, FIT_A) * broadened_polynomials[i_poly];
+      sig_s +=
+        curvefit_(i_window, i_poly).fit_s * broadened_polynomials[i_poly];
+      sig_a +=
+        curvefit_(i_window, i_poly).fit_a * broadened_polynomials[i_poly];
       if (fissionable_) {
-        sig_f += curvefit_(i_window, i_poly, FIT_F) * broadened_polynomials[i_poly];
+        sig_f +=
+          curvefit_(i_window, i_poly).fit_f * broadened_polynomials[i_poly];
       }
     }
   } else {
     // Evaluate as if it were a polynomial
     double temp = invE;
     for (int i_poly = 0; i_poly < fit_order_ + 1; ++i_poly) {
-      sig_s += curvefit_(i_window, i_poly, FIT_S) * temp;
-      sig_a += curvefit_(i_window, i_poly, FIT_A) * temp;
+      sig_s += curvefit_(i_window, i_poly).fit_s * temp;
+      sig_a += curvefit_(i_window, i_poly).fit_a * temp;
       if (fissionable_) {
-        sig_f += curvefit_(i_window, i_poly, FIT_F) * temp;
+        sig_f += curvefit_(i_window, i_poly).fit_f * temp;
       }
       temp *= sqrtE;
     }
@@ -135,24 +166,25 @@ WindowedMultipole::evaluate(double E, double sqrtkT) const
   if (sqrtkT == 0.0) {
     // If at 0K, use asymptotic form.
     for (int i_pole = window.index_start; i_pole <= window.index_end; ++i_pole) {
-      std::complex<double> psi_chi = -1.0i / (data_(i_pole, MP_EA) - sqrtE);
-      std::complex<double> c_temp = psi_chi * invE;
-      sig_s += (data_(i_pole, MP_RS) * c_temp).real();
-      sig_a += (data_(i_pole, MP_RA) * c_temp).real();
+      complx minus_i(0.0, -1.0);
+      complx psi_chi = minus_i / (data_[i_pole].ea - sqrtE);
+      complx c_temp = psi_chi * invE;
+      sig_s += (data_[i_pole].rs * c_temp).real();
+      sig_a += (data_[i_pole].ra * c_temp).real();
       if (fissionable_) {
-        sig_f += (data_(i_pole, MP_RF) * c_temp).real();
+        sig_f += (data_[i_pole].rf * c_temp).real();
       }
     }
   } else {
     // At temperature, use Faddeeva function-based form.
     double dopp = sqrt_awr_ / sqrtkT;
     for (int i_pole = window.index_start; i_pole <= window.index_end; ++i_pole) {
-      std::complex<double> z = (sqrtE - data_(i_pole, MP_EA)) * dopp;
-      std::complex<double> w_val = faddeeva(z) * dopp * invE * SQRT_PI;
-      sig_s += (data_(i_pole, MP_RS) * w_val).real();
-      sig_a += (data_(i_pole, MP_RA) * w_val).real();
+      complx z = (sqrtE - data_[i_pole].ea) * dopp;
+      complx w_val = faddeeva(z) * dopp * invE * SQRT_PI;
+      sig_s += (data_[i_pole].rs * w_val).real();
+      sig_a += (data_[i_pole].ra * w_val).real();
       if (fissionable_) {
-        sig_f += (data_(i_pole, MP_RF) * w_val).real();
+        sig_f += (data_[i_pole].rf * w_val).real();
       }
     }
   }
@@ -195,12 +227,12 @@ WindowedMultipole::evaluate_deriv(double E, double sqrtkT) const
 
   double dopp = sqrt_awr_ / sqrtkT;
   for (int i_pole = window.index_start; i_pole <= window.index_end; ++i_pole) {
-    std::complex<double> z = (sqrtE - data_(i_pole, MP_EA)) * dopp;
-    std::complex<double> w_val = -invE * SQRT_PI * 0.5 * w_derivative(z, 2);
-    sig_s += (data_(i_pole, MP_RS) * w_val).real();
-    sig_a += (data_(i_pole, MP_RA) * w_val).real();
+    complx z = (sqrtE - data_[i_pole].ea) * dopp;
+    complx w_val = -invE * SQRT_PI * 0.5 * w_derivative(z, 2);
+    sig_s += (data_[i_pole].rs * w_val).real();
+    sig_a += (data_[i_pole].ra * w_val).real();
     if (fissionable_) {
-      sig_f += (data_(i_pole, MP_RF) * w_val).real();
+      sig_f += (data_[i_pole].rf * w_val).real();
     }
   }
   double norm = -0.5*sqrt_awr_ / std::sqrt(K_BOLTZMANN) * std::pow(T, -1.5);
