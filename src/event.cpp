@@ -136,12 +136,15 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 
   simulation::time_event_calculate_xs.start();
 #ifdef __CUDACC__
-  // TODO: this could possibly be separated into the retrieval of cached
-  // XS components and the lookup of new cross sections for nuclides where
-  // necessary.
-  gpu::process_calculate_xs_events_device<<<
-    queue.size() / gpu::thread_block_size + 1, gpu::thread_block_size>>>(
-    queue.data(), queue.size());
+  if (settings::temperature_multipole) {
+    gpu::process_calculate_xs_events_device_wmp<<<
+      queue.size() / gpu::thread_block_size + 1, gpu::thread_block_size>>>(
+      queue.data(), queue.size());
+  } else {
+    gpu::process_calculate_xs_events_device<<<
+      queue.size() / gpu::thread_block_size + 1, gpu::thread_block_size>>>(
+      queue.data(), queue.size());
+  }
   cudaDeviceSynchronize();
   catchCudaErrors("process_calculate_xs_events_device");
 
