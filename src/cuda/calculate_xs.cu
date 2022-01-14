@@ -700,10 +700,11 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
         const auto& mp = *nuclide.multipole_;
         constexpr double gSQRT_PI = 1.7724538509055159927;
 
-        double sig_s;
-        double sig_a;
-        double sig_f;
-        
+        // TODO could just use micro cache variables here
+        double sig_s = 0.0;
+        double sig_a = 0.0;
+        double sig_f = 0.0;
+
         // calculate multipole stuff...
         const double sqrtE = std::sqrt(E);
         const double invE = 1.0 / E;
