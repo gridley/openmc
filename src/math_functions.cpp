@@ -1,7 +1,5 @@
 #include "openmc/math_functions.h"
 
-#include "Faddeeva.hh"
-
 #include "openmc/constants.h"
 #include "openmc/random_lcg.h"
 
