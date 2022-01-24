@@ -410,6 +410,8 @@ if (cuda)
       src/cuda/calculate_xs.cu
       src/cuda/advance.cu
       src/cuda/refill.cu
+      src/cuda/cross_surface.cu
+      src/cuda/collide.cu
       src/soa_particle.cpp
       )
   set_source_files_properties(${libopenmc_SOURCES} PROPERTIES LANGUAGE CUDA)
