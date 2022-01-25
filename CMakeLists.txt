@@ -295,18 +295,6 @@ if("${isSystemDir}" STREQUAL "-1")
 endif()
 
 #===============================================================================
-# faddeeva library
-#===============================================================================
-
-add_library(faddeeva STATIC vendor/faddeeva/Faddeeva.cc)
-target_include_directories(faddeeva
-  PUBLIC
-    $<INSTALL_INTERFACE:include/faddeeva>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/faddeeva>
-)
-target_compile_options(faddeeva PRIVATE ${cxxflags})
-
-#===============================================================================
 # libopenmc
 #===============================================================================
 
@@ -479,7 +467,7 @@ endif()
 # target_link_libraries treats any arguments starting with - but not -l as
 # linker flags. Thus, we can pass both linker flags and libraries together.
 target_link_libraries(libopenmc ${ldflags} ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES}
-                      pugixml faddeeva xtensor gsl-lite-v1 fmt::fmt)
+                      pugixml xtensor gsl-lite-v1 fmt::fmt)
 
 if(dagmc)
   target_compile_definitions(libopenmc PRIVATE DAGMC)
@@ -518,7 +506,7 @@ endif()
 # Ensure C++14 standard is used. Starting with CMake 3.8, another way this could
 # be done is using the cxx_std_14 compiler feature.
 set_target_properties(
-    openmc libopenmc faddeeva
+    openmc libopenmc
     PROPERTIES CXX_STANDARD 14 CXX_EXTENSIONS OFF)
 
 #===============================================================================
@@ -539,7 +527,7 @@ configure_file(cmake/OpenMCConfig.cmake.in "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIR
 configure_file(cmake/OpenMCConfigVersion.cmake.in "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/OpenMCConfigVersion.cmake" @ONLY)
 
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/OpenMC)
-install(TARGETS openmc libopenmc faddeeva
+install(TARGETS openmc libopenmc
   EXPORT openmc-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -559,7 +547,3 @@ install(FILES man/man1/openmc.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 install(FILES LICENSE DESTINATION "${CMAKE_INSTALL_DOCDIR}" RENAME copyright)
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES "${CMAKE_BINARY_DIR}/include/openmc/version.h" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/openmc)
-
-# Copy headers for vendored dependencies (note that all except faddeeva are handled
-# separately since they are managed by CMake)
-install(DIRECTORY vendor/faddeeva DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
