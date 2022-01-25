@@ -28,6 +28,7 @@
 #ifdef __CUDACC__
 #include "openmc/cuda/calculate_xs.h"
 #include "openmc/soa_particle.h"
+#include <cuda_profiler_api.h>
 #endif
 
 #ifdef _OPENMP
@@ -234,7 +235,21 @@ int openmc_next_batch(int* status)
 
     // Transport loop
     if (settings::event_based) {
+
+#ifdef __CUDACC__
+      if (current_gen > 2 && gpu::cuda_profile) {
+        cudaProfilerStart();
+      }
+#endif
+
       transport_event_based();
+
+#ifdef __CUDACC__
+      if (current_gen > 2 && gpu::cuda_profile) {
+        cudaProfilerStop();
+      }
+#endif
+
     } else {
       transport_history_based();
     }
