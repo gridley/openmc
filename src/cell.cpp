@@ -452,32 +452,6 @@ BoundingBox CSGCell::bounding_box() const {
 }
 
 //==============================================================================
-
-bool
-CSGCell::contains(Position const& r, Direction const& u, int32_t const& on_surface) const
-{
-  for (int32_t token : region_) {
-    // Assume that no tokens are operators. Evaluate the sense of particle with
-    // respect to the surface and see if the token matches the sense. If the
-    // particle's surface attribute is set and matches the token, that
-    // overrides the determination based on sense().
-    if (token == on_surface) {
-    } else if (-token == on_surface) {
-      return false;
-    } else {
-      // Note the off-by-one indexing
-#ifdef __CUDA_ARCH__
-      bool sense = gpu::surfaces[abs(token) - 1].sense(r, u);
-#else
-      bool sense = model::surfaces[abs(token)-1].sense(r, u);
-#endif
-      if (sense != (token > 0)) {return false;}
-    }
-  }
-  return true;
-}
-
-//==============================================================================
 // UniversePartitioner implementation
 //==============================================================================
 
