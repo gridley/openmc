@@ -99,10 +99,7 @@ bool HD find_cell_inner(Particle& p, const NeighborList* neighbor_list)
       if (cells[i_cell]->universe_ != i_universe) continue;
 
       // Check if this cell contains the particle.
-      Position r {p.r_local()};
-      Direction u {p.u_local()};
-      auto surf = p.surface();
-      if (cells[i_cell]->contains(r, u, surf)) {
+      if (cells[i_cell]->contains(p.r_local(), p.u_local(), p.surface())) {
         p.coord(p.n_coord() - 1).cell = i_cell;
         found = true;
         break;
@@ -480,23 +477,7 @@ HD BoundaryInfo distance_to_boundary(Particle& p)
       if (d == INFINITY || (d - d_surf)/d >= FP_REL_PRECISION) {
         d = d_surf;
 
-        // If the cell is not simple, it is possible that both the negative and
-        // positive half-space were given in the region specification. Thus, we
-        // have to explicitly check which half-space the particle would be
-        // traveling into if the surface is crossed
-        if (c.simple_) {
-          info.surface_index = level_surf_cross;
-        } else {
-          Position r_hit = r + d_surf * u;
-          Surface& surf {*surfaces[std::abs(level_surf_cross) - 1]};
-          Direction norm = surf.normal(r_hit);
-          if (u.dot(norm) > 0) {
-            info.surface_index = std::abs(level_surf_cross);
-          } else {
-            info.surface_index = -std::abs(level_surf_cross);
-          }
-        }
-
+        info.surface_index = level_surf_cross;
         info.lattice_translation[0] = 0;
         info.lattice_translation[1] = 0;
         info.lattice_translation[2] = 0;

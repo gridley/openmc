@@ -53,30 +53,28 @@ WhiteBC::handle_particle(Particle& p, const Surface& surf) const
 TranslationalPeriodicBC::TranslationalPeriodicBC(int i_surf, int j_surf)
   : PeriodicBC(i_surf, j_surf)
 {
-  Surface& surf1 {*model::surfaces[i_surf_]};
-  Surface& surf2 {*model::surfaces[j_surf_]};
+  Surface& surf1 {model::surfaces[i_surf_]};
+  Surface& surf2 {model::surfaces[j_surf_]};
 
   // Make sure the first surface has an appropriate type.
-  if (const auto* ptr = dynamic_cast<const SurfaceXPlane*>(&surf1)) {
-  } else if (const auto* ptr = dynamic_cast<const SurfaceYPlane*>(&surf1)) {
-  } else if (const auto* ptr = dynamic_cast<const SurfaceZPlane*>(&surf1)) {
-  } else if (const auto* ptr = dynamic_cast<const SurfacePlane*>(&surf1)) {
-  } else {
-    throw std::invalid_argument(fmt::format("Surface {} is an invalid type for "
-      "translational periodic BCs. Only planes are supported for these BCs.",
-      surf1.id_));
-  }
-
-  // Make sure the second surface has an appropriate type.
-  if (const auto* ptr = dynamic_cast<const SurfaceXPlane*>(&surf2)) {
-  } else if (const auto* ptr = dynamic_cast<const SurfaceYPlane*>(&surf2)) {
-  } else if (const auto* ptr = dynamic_cast<const SurfaceZPlane*>(&surf2)) {
-  } else if (const auto* ptr = dynamic_cast<const SurfacePlane*>(&surf2)) {
-  } else {
-    throw std::invalid_argument(fmt::format("Surface {} is an invalid type for "
-      "translational periodic BCs. Only planes are supported for these BCs.",
-      surf2.id_));
-  }
+  auto checktype = [](Surface::SurfaceType type, int id) {
+    switch (type) {
+      case Surface::SurfaceType::xplane:
+        break;
+      case Surface::SurfaceType::yplane:
+        break;
+      case Surface::SurfaceType::zplane:
+        break;
+      case Surface::SurfaceType::plane:
+        break;
+      default:
+      throw std::invalid_argument(fmt::format("Surface {} is an invalid type for "
+        "translational periodic BCs. Only planes are supported for these BCs.",
+        id));
+    }
+  };
+  checktype(surf1.type_, surf1.id_);
+  checktype(surf2.type_, surf2.id_);
 
   // Compute the distance from the first surface to the origin.  Check the
   // surface evaluate function to decide if the distance is positive, negative,
@@ -145,28 +143,26 @@ TranslationalPeriodicBC::handle_particle(Particle& p, const Surface& surf) const
 RotationalPeriodicBC::RotationalPeriodicBC(int i_surf, int j_surf)
   : PeriodicBC(i_surf, j_surf)
 {
-  Surface& surf1 {*model::surfaces[i_surf_]};
-  Surface& surf2 {*model::surfaces[j_surf_]};
+  Surface& surf1 {model::surfaces[i_surf_]};
+  Surface& surf2 {model::surfaces[j_surf_]};
 
-  // Check the type of the first surface
-  if (dynamic_cast<const SurfaceXPlane*>(&surf1)) {
-  } else if (dynamic_cast<const SurfaceYPlane*>(&surf1)) {
-  } else if (dynamic_cast<const SurfacePlane*>(&surf1)) {
-  } else {
-    throw std::invalid_argument(fmt::format("Surface {} is an invalid type for "
-      "rotational periodic BCs. Only x-planes, y-planes, or general planes "
-      "(that are perpendicular to z) are supported for these BCs.", surf1.id_));
-  }
-
-  // Check the type of the second surface
-  if (dynamic_cast<const SurfaceXPlane*>(&surf2)) {
-  } else if (dynamic_cast<const SurfaceYPlane*>(&surf2)) {
-  } else if (dynamic_cast<const SurfacePlane*>(&surf2)) {
-  } else {
-    throw std::invalid_argument(fmt::format("Surface {} is an invalid type for "
-      "rotational periodic BCs. Only x-planes, y-planes, or general planes "
-      "(that are perpendicular to z) are supported for these BCs.", surf2.id_));
-  }
+  // Make sure the first surface has an appropriate type.
+  auto checktype = [](Surface::SurfaceType type, int id) {
+    switch (type) {
+      case Surface::SurfaceType::xplane:
+        break;
+      case Surface::SurfaceType::yplane:
+        break;
+      case Surface::SurfaceType::plane:
+        break;
+      default:
+      throw std::invalid_argument(fmt::format("Surface {} is an invalid type for "
+        "rotational periodic BCs. Only x-planes, y-planes, or general planes "
+        "(that are perpendicular to z) are supported for these BCs.", id));
+    }
+  };
+  checktype(surf1.type_, surf1.id_);
+  checktype(surf2.type_, surf2.id_);
 
   // Compute the surface normal vectors and make sure they are perpendicular
   // to the z-axis

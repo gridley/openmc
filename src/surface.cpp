@@ -9,7 +9,6 @@
 
 #include "openmc/array.h"
 #include "openmc/container_util.h"
-#include "openmc/dagmc.h"
 #include "openmc/error.h"
 #include "openmc/hdf5_interface.h"
 #include "openmc/math_functions.h"
@@ -26,13 +25,13 @@ namespace openmc {
 
 namespace model {
   std::unordered_map<int, int> surface_map;
-  vector<unique_ptr<Surface>> surfaces;
+  vector<Surface> surfaces;
 } // namespace model
 
 #ifdef __CUDACC__
 namespace gpu {
 // Pointer to start of vector of surface pointers on device
-__constant__ unique_ptr<Surface>* surfaces;
+__constant__ Surface* surfaces;
 } // namespace gpu
 #endif
 
@@ -40,14 +39,14 @@ __constant__ unique_ptr<Surface>* surfaces;
 // Helper functions for reading the "coeffs" node of an XML surface element
 //==============================================================================
 
-void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1)
+void read_coeffs(pugi::xml_node surf_node, double &c1)
 {
   // Check the given number of coefficients.
   std::string coeffs = get_node_value(surf_node, "coeffs");
   int n_words = word_count(coeffs);
   if (n_words != 1) {
-    fatal_error(fmt::format("Surface {} expects 1 coeff but was given {}",
-      surf_id, n_words));
+    fatal_error(fmt::format("Surface expects 1 coeff but was given {}",
+      n_words));
   }
 
   // Parse the coefficients.
@@ -57,15 +56,15 @@ void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1)
   }
 }
 
-void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1, double &c2,
+void read_coeffs(pugi::xml_node surf_node, double &c1, double &c2,
                  double &c3)
 {
   // Check the given number of coefficients.
   std::string coeffs = get_node_value(surf_node, "coeffs");
   int n_words = word_count(coeffs);
   if (n_words != 3) {
-    fatal_error(fmt::format("Surface {} expects 3 coeffs but was given {}",
-      surf_id, n_words));
+    fatal_error(fmt::format("Surface expects 3 coeffs but was given {}",
+      n_words));
   }
 
   // Parse the coefficients.
@@ -75,15 +74,15 @@ void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1, double &c2,
   }
 }
 
-void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1, double &c2,
+void read_coeffs(pugi::xml_node surf_node, double &c1, double &c2,
                  double &c3, double &c4)
 {
   // Check the given number of coefficients.
   std::string coeffs = get_node_value(surf_node, "coeffs");
   int n_words = word_count(coeffs);
   if (n_words != 4) {
-    fatal_error(fmt::format("Surface {} expects 4 coeffs but was given ",
-      surf_id, n_words));
+    fatal_error(fmt::format("Surface expects 4 coeffs but was given ",
+      n_words));
   }
 
   // Parse the coefficients.
@@ -93,7 +92,7 @@ void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1, double &c2,
   }
 }
 
-void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1, double &c2,
+void read_coeffs(pugi::xml_node surf_node, double &c1, double &c2,
                  double &c3, double &c4, double &c5, double &c6, double &c7,
                  double &c8, double &c9, double &c10)
 {
@@ -101,8 +100,8 @@ void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1, double &c2,
   std::string coeffs = get_node_value(surf_node, "coeffs");
   int n_words = word_count(coeffs);
   if (n_words != 10) {
-    fatal_error(fmt::format("Surface {} expects 10 coeffs but was given {}",
-      surf_id, n_words));
+    fatal_error(fmt::format("Surface expects 10 coeffs but was given {}",
+      n_words));
   }
 
   // Parse the coefficients.
@@ -117,7 +116,7 @@ void read_coeffs(pugi::xml_node surf_node, int surf_id, double &c1, double &c2,
 // Surface implementation
 //==============================================================================
 
-Surface::Surface(pugi::xml_node surf_node)
+Surface::Surface(pugi::xml_node surf_node, SurfaceType type)
 {
 
   if (check_for_node(surf_node, "id")) {
@@ -152,59 +151,50 @@ Surface::Surface(pugi::xml_node surf_node)
         "on surface {}", surf_bc, id_));
     }
   }
-}
 
-HD bool Surface::sense(Position r, Direction u) const
-{
-  // Evaluate the surface equation at the particle's coordinates to determine
-  // which side the particle is on.
-  const double f = evaluate(r);
-
-  // Check which side of surface the point is on.
-  if (std::abs(f) < FP_COINCIDENT) {
-    // Particle may be coincident with this surface. To determine the sense, we
-    // look at the direction of the particle relative to the surface normal (by
-    // default in the positive direction) via their dot product.
-    return u.dot(normal(r)) > 0.0;
+  type_ = type;
+  switch (type) {
+    case SurfaceType::xplane:
+      new (&storage_.xp) SurfaceXPlane(surf_node);
+      break;
+    case SurfaceType::yplane:
+      new (&storage_.yp) SurfaceYPlane(surf_node);
+      break;
+    case SurfaceType::zplane:
+      new (&storage_.zp) SurfaceZPlane(surf_node);
+      break;
+    case SurfaceType::plane:
+      new (&storage_.p) SurfacePlane(surf_node);
+      break;
+    case SurfaceType::xcylinder:
+      new (&storage_.xc) SurfaceXCylinder(surf_node);
+      break;
+    case SurfaceType::ycylinder:
+      new (&storage_.yc) SurfaceYCylinder(surf_node);
+      break;
+    case SurfaceType::zcylinder:
+      new (&storage_.zc) SurfaceZCylinder(surf_node);
+      break;
+    case SurfaceType::sphere:
+      new (&storage_.sph) SurfaceSphere(surf_node);
+      break;
+    case SurfaceType::xcone:
+      new (&storage_.xco) SurfaceXCone(surf_node);
+      break;
+    case SurfaceType::ycone:
+      new (&storage_.yco) SurfaceYCone(surf_node);
+      break;
+    case SurfaceType::zcone:
+      new (&storage_.zco) SurfaceZCone(surf_node);
+      break;
+    case SurfaceType::quadric:
+      new (&storage_.q) SurfaceQuadric(surf_node);
+      break;
   }
-  return f > 0.0;
 }
-
-HD Direction Surface::reflect(Position r, Direction u, Particle* p) const
-{
-  // Determine projection of direction onto normal and squared magnitude of
-  // normal.
-  Direction n = normal(r);
-
-  // Reflect direction according to normal.
-  return u.reflect(n);
-}
-
-HD Direction Surface::diffuse_reflect(
-  Position r, Direction u, uint64_t* seed) const
-{
-  // Diffuse reflect direction according to the normal.
-  // cosine distribution
-
-  Direction n = this->normal(r);
-  n /= n.norm();
-  const double projection = n.dot(u);
-
-  // sample from inverse function, u=sqrt(rand) since p(u)=2u, so F(u)=u^2
-  const double mu = (projection>=0.0) ?
-                  -std::sqrt(prn(seed)) : std::sqrt(prn(seed));
-
-  // sample azimuthal distribution uniformly
-  u = rotate_angle(n, mu, nullptr, seed);
-
-  // normalize the direction
-  return u/u.norm();
-}
-
-CSGSurface::CSGSurface(pugi::xml_node surf_node) : Surface{surf_node} {};
 
 void
-CSGSurface::to_hdf5(hid_t group_id) const
+Surface::to_hdf5(hid_t group_id) const
 {
   std::string group_name {"surface "};
   group_name += std::to_string(id_);
@@ -227,61 +217,6 @@ CSGSurface::to_hdf5(hid_t group_id) const
 }
 
 //==============================================================================
-// DAGSurface implementation
-//==============================================================================
-#ifdef DAGMC
-DAGSurface::DAGSurface() : Surface{} {} // empty constructor
-
-double DAGSurface::evaluate(Position r) const
-{
-  return 0.0;
-}
-
-double
-DAGSurface::distance(Position r, Direction u, bool coincident) const
-{
-  moab::ErrorCode rval;
-  moab::EntityHandle surf = dagmc_ptr_->entity_by_index(2, dag_index_);
-  moab::EntityHandle hit_surf;
-  double dist;
-  double pnt[3] = {r.x, r.y, r.z};
-  double dir[3] = {u.x, u.y, u.z};
-  rval = dagmc_ptr_->ray_fire(surf, pnt, dir, hit_surf, dist, NULL, 0, 0);
-  MB_CHK_ERR_CONT(rval);
-  if (dist < 0.0) dist = INFTY;
-  return dist;
-}
-
-Direction DAGSurface::normal(Position r) const
-{
-  moab::ErrorCode rval;
-  moab::EntityHandle surf = dagmc_ptr_->entity_by_index(2, dag_index_);
-  double pnt[3] = {r.x, r.y, r.z};
-  double dir[3];
-  rval = dagmc_ptr_->get_angle(surf, pnt, dir);
-  MB_CHK_ERR_CONT(rval);
-  return dir;
-}
-
-Direction DAGSurface::reflect(Position r, Direction u, Particle* p) const
-{
-  Expects(p);
-  p->history().reset_to_last_intersection();
-  moab::ErrorCode rval;
-  moab::EntityHandle surf = dagmc_ptr_->entity_by_index(2, dag_index_);
-  double pnt[3] = {r.x, r.y, r.z};
-  double dir[3];
-  rval = dagmc_ptr_->get_angle(surf, pnt, dir, &p->history());
-  MB_CHK_ERR_CONT(rval);
-  p->last_dir() = u.reflect(dir);
-  return p->last_dir();
-}
-
-void DAGSurface::to_hdf5(hid_t group_id) const {}
-
-#endif
-
-//==============================================================================
 // Generic functions for x-, y-, and z-, planes.
 //==============================================================================
 
@@ -302,9 +237,8 @@ double HD axis_aligned_plane_distance(
 //==============================================================================
 
 SurfaceXPlane::SurfaceXPlane(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, x0_);
+  read_coeffs(surf_node, x0_);
 }
 
 HD double SurfaceXPlane::evaluate(Position r) const
@@ -345,9 +279,8 @@ SurfaceXPlane::bounding_box(bool pos_side) const
 //==============================================================================
 
 SurfaceYPlane::SurfaceYPlane(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, y0_);
+  read_coeffs(surf_node, y0_);
 }
 
 HD double SurfaceYPlane::evaluate(Position r) const
@@ -388,9 +321,8 @@ SurfaceYPlane::bounding_box(bool pos_side) const
 //==============================================================================
 
 SurfaceZPlane::SurfaceZPlane(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, z0_);
+  read_coeffs(surf_node, z0_);
 }
 
 HD double SurfaceZPlane::evaluate(Position r) const
@@ -431,9 +363,8 @@ SurfaceZPlane::bounding_box(bool pos_side) const
 //==============================================================================
 
 SurfacePlane::SurfacePlane(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, A_, B_, C_, D_);
+  read_coeffs(surf_node, A_, B_, C_, D_);
 }
 
 double HD SurfacePlane::evaluate(Position r) const
@@ -547,9 +478,8 @@ Direction HD axis_aligned_cylinder_normal(
 //==============================================================================
 
 SurfaceXCylinder::SurfaceXCylinder(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, y0_, z0_, radius_);
+  read_coeffs(surf_node, y0_, z0_, radius_);
 }
 
 HD double SurfaceXCylinder::evaluate(Position r) const
@@ -589,9 +519,8 @@ HD BoundingBox SurfaceXCylinder::bounding_box(bool pos_side) const
 //==============================================================================
 
 SurfaceYCylinder::SurfaceYCylinder(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, x0_, z0_, radius_);
+  read_coeffs(surf_node, x0_, z0_, radius_);
 }
 
 HD double SurfaceYCylinder::evaluate(Position r) const
@@ -632,9 +561,8 @@ HD BoundingBox SurfaceYCylinder::bounding_box(bool pos_side) const
 //==============================================================================
 
 SurfaceZCylinder::SurfaceZCylinder(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, x0_, y0_, radius_);
+  read_coeffs(surf_node, x0_, y0_, radius_);
 }
 
 HD double SurfaceZCylinder::evaluate(Position r) const
@@ -675,9 +603,8 @@ HD BoundingBox SurfaceZCylinder::bounding_box(bool pos_side) const
 //==============================================================================
 
 SurfaceSphere::SurfaceSphere(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, x0_, y0_, z0_, radius_);
+  read_coeffs(surf_node, x0_, y0_, z0_, radius_);
 }
 
 HD double SurfaceSphere::evaluate(Position r) const
@@ -840,9 +767,8 @@ Direction HD axis_aligned_cone_normal(
 //==============================================================================
 
 SurfaceXCone::SurfaceXCone(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, x0_, y0_, z0_, radius_sq_);
+  read_coeffs(surf_node, x0_, y0_, z0_, radius_sq_);
 }
 
 HD double SurfaceXCone::evaluate(Position r) const
@@ -873,9 +799,8 @@ void SurfaceXCone::to_hdf5_inner(hid_t group_id) const
 //==============================================================================
 
 SurfaceYCone::SurfaceYCone(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, x0_, y0_, z0_, radius_sq_);
+  read_coeffs(surf_node, x0_, y0_, z0_, radius_sq_);
 }
 
 HD double SurfaceYCone::evaluate(Position r) const
@@ -906,9 +831,8 @@ void SurfaceYCone::to_hdf5_inner(hid_t group_id) const
 //==============================================================================
 
 SurfaceZCone::SurfaceZCone(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, x0_, y0_, z0_, radius_sq_);
+  read_coeffs(surf_node, x0_, y0_, z0_, radius_sq_);
 }
 
 HD double SurfaceZCone::evaluate(Position r) const
@@ -939,9 +863,8 @@ void SurfaceZCone::to_hdf5_inner(hid_t group_id) const
 //==============================================================================
 
 SurfaceQuadric::SurfaceQuadric(pugi::xml_node surf_node)
-  : CSGSurface(surf_node)
 {
-  read_coeffs(surf_node, id_, A_, B_, C_, D_, E_, F_, G_, H_, J_, K_);
+  read_coeffs(surf_node, A_, B_, C_, D_, E_, F_, G_, H_, J_, K_);
 }
 
 double HD SurfaceQuadric::evaluate(Position r) const
@@ -1061,45 +984,35 @@ void read_surfaces(pugi::xml_node node)
 
       // Allocate and initialize the new surface
 
+      Surface::SurfaceType type;
       if (surf_type == "x-plane") {
-        model::surfaces.push_back(make_unique<SurfaceXPlane>(surf_node));
-
+        type = Surface::SurfaceType::xplane;
       } else if (surf_type == "y-plane") {
-        model::surfaces.push_back(make_unique<SurfaceYPlane>(surf_node));
-
+        type = Surface::SurfaceType::yplane;
       } else if (surf_type == "z-plane") {
-        model::surfaces.push_back(make_unique<SurfaceZPlane>(surf_node));
-
+        type = Surface::SurfaceType::zplane;
       } else if (surf_type == "plane") {
-        model::surfaces.push_back(make_unique<SurfacePlane>(surf_node));
-
+        type = Surface::SurfaceType::plane;
       } else if (surf_type == "x-cylinder") {
-        model::surfaces.push_back(make_unique<SurfaceXCylinder>(surf_node));
-
+        type = Surface::SurfaceType::xcylinder;
       } else if (surf_type == "y-cylinder") {
-        model::surfaces.push_back(make_unique<SurfaceYCylinder>(surf_node));
-
+        type = Surface::SurfaceType::ycylinder;
       } else if (surf_type == "z-cylinder") {
-        model::surfaces.push_back(make_unique<SurfaceZCylinder>(surf_node));
-
+        type = Surface::SurfaceType::zcylinder;
       } else if (surf_type == "sphere") {
-        model::surfaces.push_back(make_unique<SurfaceSphere>(surf_node));
-
+        type = Surface::SurfaceType::sphere;
       } else if (surf_type == "x-cone") {
-        model::surfaces.push_back(make_unique<SurfaceXCone>(surf_node));
-
+        type = Surface::SurfaceType::xcone;
       } else if (surf_type == "y-cone") {
-        model::surfaces.push_back(make_unique<SurfaceYCone>(surf_node));
-
+        type = Surface::SurfaceType::ycone;
       } else if (surf_type == "z-cone") {
-        model::surfaces.push_back(make_unique<SurfaceZCone>(surf_node));
-
+        type = Surface::SurfaceType::zcone;
       } else if (surf_type == "quadric") {
-        model::surfaces.push_back(make_unique<SurfaceQuadric>(surf_node));
-
+        type = Surface::SurfaceType::quadric;
       } else {
         fatal_error(fmt::format("Invalid surface type, \"{}\"", surf_type));
       }
+      model::surfaces.emplace_back(surf_node, type);
 
       // Check for a periodic surface
       if (check_for_node(surf_node, "boundary")) {
@@ -1108,11 +1021,11 @@ void read_surfaces(pugi::xml_node node)
           if (check_for_node(surf_node, "periodic_surface_id")) {
             int i_periodic = std::stoi(get_node_value(surf_node,
                                                       "periodic_surface_id"));
-            int lo_id = std::min(model::surfaces.back()->id_, i_periodic);
-            int hi_id = std::max(model::surfaces.back()->id_, i_periodic);
+            int lo_id = std::min(model::surfaces.back().id_, i_periodic);
+            int hi_id = std::max(model::surfaces.back().id_, i_periodic);
             periodic_pairs.insert({lo_id, hi_id});
           } else {
-            periodic_pairs.insert({model::surfaces.back()->id_, -1});
+            periodic_pairs.insert({model::surfaces.back().id_, -1});
           }
         }
       }
@@ -1121,7 +1034,7 @@ void read_surfaces(pugi::xml_node node)
 
   // Fill the surface map
   for (int i_surf = 0; i_surf < model::surfaces.size(); i_surf++) {
-    int id = model::surfaces[i_surf]->id_;
+    int id = model::surfaces[i_surf].id_;
     auto in_map = model::surface_map.find(id);
     if (in_map == model::surface_map.end()) {
       model::surface_map[id] = i_surf;
@@ -1170,8 +1083,8 @@ void read_surfaces(pugi::xml_node node)
   for (auto periodic_pair : periodic_pairs) {
     int i_surf = model::surface_map[periodic_pair.first];
     int j_surf = model::surface_map[periodic_pair.second];
-    Surface& surf1 {*model::surfaces[i_surf]};
-    Surface& surf2 {*model::surfaces[j_surf]};
+    Surface& surf1 {model::surfaces[i_surf]};
+    Surface& surf2 {model::surfaces[j_surf]};
 
     // Compute the dot product of the surface normals
     Direction norm1 = surf1.normal({0, 0, 0});
@@ -1196,7 +1109,7 @@ void read_surfaces(pugi::xml_node node)
   // surface
   bool boundary_exists = false;
   for (const auto& surf : model::surfaces) {
-    if (surf->bc_) {
+    if (surf.bc_) {
       boundary_exists = true;
       break;
     }
@@ -1208,9 +1121,9 @@ void read_surfaces(pugi::xml_node node)
 #ifdef __CUDACC__
   // Save pointer to vector of surface pointers on GPU, since global variables
   // on device are kept separately
-  unique_ptr<Surface>* first_surface_ptr = model::surfaces.data();
+  Surface* first_surface_ptr = model::surfaces.data();
   cudaMemcpyToSymbol(
-    gpu::surfaces, &first_surface_ptr, sizeof(unique_ptr<Surface>*));
+    gpu::surfaces, &first_surface_ptr, sizeof(Surface*));
 #endif
 }
 

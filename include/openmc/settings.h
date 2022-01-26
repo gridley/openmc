@@ -131,6 +131,9 @@ __constant__ extern bool urr_ptables_on;
 #define BLOCKSIZE 256     // Going to make this run-time selectable eventually
 #define BLOCKSIZE_S "256" // for error message
 extern unsigned thread_block_size;
+
+// whether to use the cuda profiler. Just calls start/stop on profiler API.
+extern bool cuda_profile;
 } // namespace gpu
 #endif
 

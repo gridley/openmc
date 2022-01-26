@@ -51,10 +51,6 @@ class UniversePartitioner;
 
 namespace model {
   extern std::unordered_map<int32_t, int32_t> cell_map;
-
-  // For some reason, CUDA has some issue with virtual destructors, so I have to
-  // restrict this to not use the base class. TODO add some ifdef magic to
-  // maintain this working with DAGMC
   extern vector<unique_ptr<CSGCell>> cells;
 
   extern std::unordered_map<int32_t, int32_t> universe_map;
@@ -99,42 +95,6 @@ public:
 
   explicit Cell(pugi::xml_node cell_node);
   Cell() = default;
-
-  //----------------------------------------------------------------------------
-  // Methods
-
-  //! \brief Determine if a cell contains the particle at a given location.
-  //!
-  //! The bounds of the cell are detemined by a logical expression involving
-  //! surface half-spaces. At initialization, the expression was converted
-  //! to RPN notation.
-  //!
-  //! The function is split into two cases, one for simple cells (those
-  //! involving only the intersection of half-spaces) and one for complex cells.
-  //! Simple cells can be evaluated with short circuit evaluation, i.e., as soon
-  //! as we know that one half-space is not satisfied, we can exit. This
-  //! provides a performance benefit for the common case. In
-  //! contains_complex, we evaluate the RPN expression using a stack, similar to
-  //! how a RPN calculator would work.
-  //! \param r The 3D Cartesian coordinate to check.
-  //! \param u A direction used to "break ties" the coordinates are very
-  //!   close to a surface.
-  //! \param on_surface The signed index of a surface that the coordinate is
-  //!   known to be on.  This index takes precedence over surface sense
-  //!   calculations.
-  // virtual bool HD contains(
-  //   Position r, Direction u, int32_t on_surface) const = 0;
-
-  //! Find the oncoming boundary of this cell.
-  // virtual std::pair<double, int32_t> HD distance(
-  //   Position r, Direction u, int32_t on_surface, Particle* p) const = 0;
-
-  //! Write all information needed to reconstruct the cell to an HDF5 group.
-  //! \param group_id An HDF5 group id.
-  // virtual void to_hdf5(hid_t group_id) const = 0;
-
-  //! Get the BoundingBox for this cell.
-  // virtual BoundingBox bounding_box() const = 0;
 
   //----------------------------------------------------------------------------
   // Accessors
@@ -198,9 +158,6 @@ public:
 
   //! Definition of spatial region as Boolean expression of half-spaces
   vector<int32_t> region_;
-  //! Reverse Polish notation for region expression
-  vector<int32_t> rpn_;
-  bool simple_;  //!< Does the region contain only intersections?
 
   //! \brief Neighboring cells in the same universe.
   NeighborList neighbors_;
@@ -231,7 +188,7 @@ public:
   explicit CSGCell(pugi::xml_node cell_node);
   CSGCell() = default;
 
-  bool HD contains(Position r, Direction u, int32_t on_surface) const;
+  bool HD contains(Position const& r, Direction const& u, int32_t const& on_surface) const;
 
   std::pair<double, int32_t> HD distance(
     Position r, Direction u, int32_t on_surface, Particle* p) const;
@@ -241,51 +198,8 @@ public:
   BoundingBox bounding_box() const;
 
 protected:
-  bool HD contains_simple(Position r, Direction u, int32_t on_surface) const;
-  bool HD contains_complex(Position r, Direction u, int32_t on_surface) const;
   BoundingBox bounding_box_simple() const;
-  static BoundingBox bounding_box_complex(vector<int32_t> rpn);
-
-  //! Applies DeMorgan's laws to a section of the RPN
-  //! \param start Starting point for token modification
-  //! \param stop Stopping point for token modification
-  static void apply_demorgan(
-    vector<int32_t>::iterator start, vector<int32_t>::iterator stop);
-
-  //! Removes complement operators from the RPN
-  //! \param rpn The rpn to remove complement operators from.
-  static void remove_complement_ops(vector<int32_t>& rpn);
-
-  //! Returns the beginning position of a parenthesis block (immediately before
-  //! two surface tokens) in the RPN given a starting position at the end of
-  //! that block (immediately after two surface tokens)
-  //! \param start Starting position of the search
-  //! \param rpn The rpn being searched
-  static vector<int32_t>::iterator find_left_parenthesis(
-    vector<int32_t>::iterator start, const vector<int32_t>& rpn);
 };
-
-//==============================================================================
-
-#ifdef DAGMC
-class DAGCell : public Cell
-{
-public:
-  DAGCell();
-
-  bool contains(Position r, Direction u, int32_t on_surface) const;
-
-  std::pair<double, int32_t>
-  distance(Position r, Direction u, int32_t on_surface, Particle* p) const;
-
-  BoundingBox bounding_box() const;
-
-  void to_hdf5(hid_t group_id) const;
-
-  moab::DagMC* dagmc_ptr_; //!< Pointer to DagMC instance
-  int32_t dag_index_;      //!< DagMC index of cell
-};
-#endif
 
 //==============================================================================
 //! Speeds up geometry searches by grouping cells in a search tree.

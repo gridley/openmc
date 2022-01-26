@@ -435,22 +435,22 @@ Particle::cross_surface()
 #endif
 
   int i_surface = std::abs(surface());
-  const auto& surf {surfaces[i_surface - 1].get()};
+  const auto& surf {surfaces[i_surface - 1]};
 
 #ifndef __CUDA_ARCH__
   if (settings::verbosity >= 10 || trace()) {
-    write_message(1, "    Crossing surface {}", surf->id_);
+    write_message(1, "    Crossing surface {}", surf.id_);
   }
 
   // TODO make surface sources work on GPU
-  if (surf->surf_source_ && simulation::current_batch == settings::n_batches) {
+  if (surf.surf_source_ && simulation::current_batch == settings::n_batches) {
     SourceSite site;
     site.r = r();
     site.u = u();
     site.E = E();
     site.wgt = wgt();
     site.delayed_group = delayed_group();
-    site.surf_id = surf->id_;
+    site.surf_id = surf.id_;
     site.particle = type();
     site.parent_id = id();
     site.progeny_id = n_progeny();
@@ -459,32 +459,10 @@ Particle::cross_surface()
 #endif
 
   // Handle any applicable boundary conditions.
-  if (surf->bc_ && run_mode != RunMode::PLOTTING) {
-    surf->bc_->handle_particle(*this, *surf);
+  if (surf.bc_ && run_mode != RunMode::PLOTTING) {
+    surf.bc_->handle_particle(*this, surf);
     return;
   }
-
-  // ==========================================================================
-  // SEARCH NEIGHBOR LISTS FOR NEXT CELL
-
-#ifdef DAGMC
-  if (settings::dagmc) {
-    auto cellp = dynamic_cast<DAGCell*>(model::cells[cell_last(0)].get());
-    // TODO: off-by-one
-    auto surfp =
-      dynamic_cast<DAGSurface*>(model::surfaces[std::abs(surface()) - 1].get());
-    int32_t i_cell = next_cell(cellp, surfp) - 1;
-    // save material and temp
-    material_last() = material();
-    sqrtkT_last() = sqrtkT();
-    // set new cell value
-    coord(0).cell = i_cell;
-    cell_instance() = 0;
-    material() = model::cells[i_cell]->material_[0];
-    sqrtkT() = model::cells[i_cell]->sqrtkT_[0];
-    return;
-  }
-#endif
 
   if (neighbor_list_find_cell(*this))
     return;
@@ -512,7 +490,7 @@ Particle::cross_surface()
     if (!exhaustive_find_cell(*this)) {
 #ifndef __CUDA_ARCH__
       mark_as_lost("After particle " + std::to_string(id()) +
-                   " crossed surface " + std::to_string(surf->id_) +
+                   " crossed surface " + std::to_string(surf.id_) +
                    " it could not be located in any cell and it did not leak.");
 #else
       __trap();
