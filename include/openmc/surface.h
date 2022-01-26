@@ -105,9 +105,9 @@ public:
   explicit SurfaceXPlane(pugi::xml_node surf_node);
   SurfaceXPlane(SurfaceXPlane&& other) = default;
 
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
   HD BoundingBox bounding_box(bool pos_side) const;
 
@@ -126,9 +126,9 @@ public:
   explicit SurfaceYPlane(pugi::xml_node surf_node);
   SurfaceYPlane(SurfaceYPlane&& other) = default;
 
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
   HD BoundingBox bounding_box(bool pos_side) const;
 
@@ -146,9 +146,9 @@ class SurfaceZPlane
 public:
   explicit SurfaceZPlane(pugi::xml_node surf_node);
   SurfaceZPlane(SurfaceZPlane&& other) = default;
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
   HD BoundingBox bounding_box(bool pos_side) const;
 
@@ -168,9 +168,9 @@ public:
 
   SurfacePlane(SurfacePlane&& other) = default;
 
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
 
   double A_, B_, C_, D_;
@@ -188,9 +188,9 @@ class SurfaceXCylinder
 public:
   explicit SurfaceXCylinder(pugi::xml_node surf_node);
   SurfaceXCylinder(SurfaceXCylinder&& other) = default;
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
   HD BoundingBox bounding_box(bool pos_side) const;
 
@@ -209,9 +209,9 @@ class SurfaceYCylinder
 public:
   explicit SurfaceYCylinder(pugi::xml_node surf_node);
   SurfaceYCylinder(SurfaceYCylinder&& other) = default;
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
   HD BoundingBox bounding_box(bool pos_side) const;
 
@@ -231,9 +231,9 @@ public:
   explicit SurfaceZCylinder(pugi::xml_node surf_node);
   SurfaceZCylinder(SurfaceZCylinder&& other) = default;
 
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
   HD BoundingBox bounding_box(bool pos_side) const;
 
@@ -252,9 +252,9 @@ class SurfaceSphere
 public:
   explicit SurfaceSphere(pugi::xml_node surf_node);
   SurfaceSphere(SurfaceSphere&& other) = default;
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
   HD BoundingBox bounding_box(bool pos_side) const;
 
@@ -273,9 +273,9 @@ class SurfaceXCone
 public:
   explicit SurfaceXCone(pugi::xml_node surf_node);
   SurfaceXCone(SurfaceXCone&& other) = default;
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
 
   double x0_, y0_, z0_, radius_sq_;
@@ -293,9 +293,9 @@ class SurfaceYCone
 public:
   explicit SurfaceYCone(pugi::xml_node surf_node);
   SurfaceYCone(SurfaceYCone&& other) = default;
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
 
   double x0_, y0_, z0_, radius_sq_;
@@ -313,9 +313,9 @@ class SurfaceZCone
 public:
   explicit SurfaceZCone(pugi::xml_node surf_node);
   SurfaceZCone(SurfaceZCone&& other) = default;
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
 
   double x0_, y0_, z0_, radius_sq_;
@@ -333,9 +333,9 @@ public:
   explicit SurfaceQuadric(pugi::xml_node surf_node);
   SurfaceQuadric(SurfaceQuadric&& other) = default;
 
-  HD double evaluate(Position r) const;
-  HD double distance(Position r, Direction u, bool coincident) const;
-  HD Direction normal(Position r) const;
+  HD double evaluate(Position const& r) const;
+  HD double distance(Position const& r, Direction const& u, bool coincident) const;
+  HD Direction normal(Position const& r) const;
   void to_hdf5_inner(hid_t group_id) const;
 
   // Ax^2 + By^2 + Cz^2 + Dxy + Eyz + Fxz + Gx + Hy + Jz + K = 0
@@ -501,7 +501,7 @@ public:
   //! Surfaces can be described by some function f(x, y, z) = 0.  This member
   //! function evaluates that mathematical function.
   //! \param r A 3D Cartesian coordinate.
-  HD double evaluate(Position r) const {
+  HD double evaluate(Position const& r) const {
     switch (type_) {
       case SurfaceType::xplane:
         return storage_.xp.evaluate(r);
@@ -537,7 +537,7 @@ public:
   //!   point is very close to the surface.
   //! \return true if the point is on the "positive" side of the surface and
   //!   false otherwise.
-  HD bool sense(Position r, Direction u) const {
+  HD bool sense(Position const& r, Direction const& u) const {
     double f;// = evaluate(r);
     double udotnormalr; //=u.dot(normal(r)) > 0.0
     // Note: avoids the use of two jump tables!
@@ -602,7 +602,7 @@ public:
   //! \param coincident A hint to the code that the given point should lie
   //!   exactly on the surface.
   HD double distance(
-    Position r, Direction u, bool coincident) {
+    Position const& r, Direction const& u, bool coincident) {
     switch (type_) {
       case SurfaceType::xplane:
         return storage_.xp.distance(r, u, coincident);
@@ -635,7 +635,7 @@ public:
   //! Compute the local outward normal direction of the surface.
   //! \param r A 3D Cartesian coordinate.
   //! \return Normal direction
-  HD Direction normal(Position r) const {
+  HD Direction normal(Position const& r) const {
     switch (type_) {
       case SurfaceType::xplane:
         return storage_.xp.normal(r);
