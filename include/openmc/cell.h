@@ -213,7 +213,36 @@ public:
   }
 
   std::pair<double, int32_t> HD distance(
-    Position r, Direction u, int32_t on_surface, Particle* p) const;
+    Position r, Direction u, int32_t on_surface, Particle* p) const
+  {
+      #ifdef __CUDA_ARCH__
+      using gpu::surfaces;
+      #else
+      using model::surfaces;
+      #endif
+
+      double min_dist {INFTY};
+      constexpr int32_t default_cell_index = std::numeric_limits<int32_t>::max();
+      int32_t i_surf {default_cell_index};
+
+      for (int32_t token : region_) {
+
+        // Calculate the distance to this surface.
+        // Note the off-by-one indexing
+        bool coincident {std::abs(token) == std::abs(on_surface)};
+        double d {surfaces[abs(token) - 1].distance(r, u, coincident)};
+
+        // Check if this distance is the new minimum.
+        if (d < min_dist) {
+          if (min_dist - d >= FP_PRECISION*min_dist) {
+            min_dist = d;
+            i_surf = -token;
+          }
+        }
+      }
+
+    return {min_dist, i_surf};
+  }
 
   void to_hdf5(hid_t group_id) const;
 
