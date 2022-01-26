@@ -216,45 +216,9 @@ Surface::to_hdf5(hid_t group_id) const
   close_group(surf_group);
 }
 
-//==============================================================================
-// Generic functions for x-, y-, and z-, planes.
-//==============================================================================
-
-// The template parameter indicates the axis normal to the plane.
-template<int i>
-double HD axis_aligned_plane_distance(
-  Position const& r, Direction const& u, bool coincident, double const& offset)
-{
-  const double f = offset - r[i];
-  if (coincident || std::abs(f) < FP_COINCIDENT || u[i] == 0.0) return INFTY;
-  const double d = f / u[i];
-  if (d < 0.0) return INFTY;
-  return d;
-}
-
-//==============================================================================
-// SurfaceXPlane implementation
-//==============================================================================
-
 SurfaceXPlane::SurfaceXPlane(pugi::xml_node surf_node)
 {
   read_coeffs(surf_node, x0_);
-}
-
-HD double SurfaceXPlane::evaluate(Position const& r) const
-{
-  return r.x - x0_;
-}
-
-HD double SurfaceXPlane::distance(
-  Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_plane_distance<0>(r, u, coincident, x0_);
-}
-
-HD Direction SurfaceXPlane::normal(Position const& r) const
-{
-  return {1., 0., 0.};
 }
 
 void SurfaceXPlane::to_hdf5_inner(hid_t group_id) const
@@ -283,22 +247,6 @@ SurfaceYPlane::SurfaceYPlane(pugi::xml_node surf_node)
   read_coeffs(surf_node, y0_);
 }
 
-HD double SurfaceYPlane::evaluate(Position const& r) const
-{
-  return r.y - y0_;
-}
-
-HD double SurfaceYPlane::distance(
-  Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_plane_distance<1>(r, u, coincident, y0_);
-}
-
-HD Direction SurfaceYPlane::normal(Position const& r) const
-{
-  return {0., 1., 0.};
-}
-
 void SurfaceYPlane::to_hdf5_inner(hid_t group_id) const
 {
   write_string(group_id, "type", "y-plane", false);
@@ -323,22 +271,6 @@ SurfaceYPlane::bounding_box(bool pos_side) const
 SurfaceZPlane::SurfaceZPlane(pugi::xml_node surf_node)
 {
   read_coeffs(surf_node, z0_);
-}
-
-HD double SurfaceZPlane::evaluate(Position const& r) const
-{
-  return r.z - z0_;
-}
-
-HD double SurfaceZPlane::distance(
-  Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_plane_distance<2>(r, u, coincident, z0_);
-}
-
-HD Direction SurfaceZPlane::normal(Position const& r) const
-{
-  return {0., 0., 1.};
 }
 
 void SurfaceZPlane::to_hdf5_inner(hid_t group_id) const
@@ -367,28 +299,6 @@ SurfacePlane::SurfacePlane(pugi::xml_node surf_node)
   read_coeffs(surf_node, A_, B_, C_, D_);
 }
 
-double HD SurfacePlane::evaluate(Position const& r) const
-{
-  return A_*r.x + B_*r.y + C_*r.z - D_;
-}
-
-double HD SurfacePlane::distance(Position const& r, Direction const& u, bool coincident) const
-{
-  const double f = A_*r.x + B_*r.y + C_*r.z - D_;
-  const double projection = A_*u.x + B_*u.y + C_*u.z;
-  if (coincident || std::abs(f) < FP_COINCIDENT || projection == 0.0) {
-    return INFTY;
-  } else {
-    const double d = -f / projection;
-    if (d < 0.0) return INFTY;
-    return d;
-  }
-}
-
-Direction HD SurfacePlane::normal(Position const& r) const
-{
-  return {A_, B_, C_};
-}
 
 void SurfacePlane::to_hdf5_inner(hid_t group_id) const
 {
@@ -397,81 +307,6 @@ void SurfacePlane::to_hdf5_inner(hid_t group_id) const
   write_dataset(group_id, "coefficients", coeffs);
 }
 
-//==============================================================================
-// Generic functions for x-, y-, and z-, cylinders
-//==============================================================================
-
-// The template parameters indicate the axes perpendicular to the axis of the
-// cylinder.  offset1 and offset2 should correspond with i1 and i2,
-// respectively.
-template<int i1, int i2>
-double HD axis_aligned_cylinder_evaluate(
-  Position const& r, double const& offset1, double const& offset2, double const& radius)
-{
-  const double r1 = r.get<i1>() - offset1;
-  const double r2 = r.get<i2>() - offset2;
-  return r1*r1 + r2*r2 - radius*radius;
-}
-
-// The first template parameter indicates which axis the cylinder is aligned to.
-// The other two parameters indicate the other two axes.  offset1 and offset2
-// should correspond with i2 and i3, respectively.
-template<int i1, int i2, int i3>
-double HD axis_aligned_cylinder_distance(Position const& r, Direction const& u,
-  bool coincident, double const& offset1, double const& offset2, double const& radius)
-{
-  const double a = 1.0 - u.get<i1>() * u.get<i1>(); // u^2 + v^2
-  if (a == 0.0) return INFTY;
-
-  const double r2 = r.get<i2>() - offset1;
-  const double r3 = r.get<i3>() - offset2;
-  const double k = r2 * u.get<i2>() + r3 * u.get<i3>();
-  const double c = r2*r2 + r3*r3 - radius*radius;
-  const double quad = k*k - a*c;
-
-  if (quad < 0.0) {
-    // No intersection with cylinder.
-    return INFTY;
-
-  } else if (coincident || std::abs(c) < FP_COINCIDENT) {
-    // Particle is on the cylinder, thus one distance is positive/negative
-    // and the other is zero. The sign of k determines if we are facing in or
-    // out.
-    if (k >= 0.0) {
-      return INFTY;
-    } else {
-      return (-k + sqrt(quad)) / a;
-    }
-
-  } else if (c < 0.0) {
-    // Particle is inside the cylinder, thus one distance must be negative
-    // and one must be positive. The positive distance will be the one with
-    // negative sign on sqrt(quad).
-    return (-k + sqrt(quad)) / a;
-
-  } else {
-    // Particle is outside the cylinder, thus both distances are either
-    // positive or negative. If positive, the smaller distance is the one
-    // with positive sign on sqrt(quad).
-    const double d = (-k - sqrt(quad)) / a;
-    if (d < 0.0) return INFTY;
-    return d;
-  }
-}
-
-// The first template parameter indicates which axis the cylinder is aligned to.
-// The other two parameters indicate the other two axes.  offset1 and offset2
-// should correspond with i2 and i3, respectively.
-template<int i1, int i2, int i3>
-Direction HD axis_aligned_cylinder_normal(
-  Position const& r, double const& offset1, double const& offset2)
-{
-  Direction u;
-  u.get<i2>() = 2.0 * (r.get<i2>() - offset1);
-  u.get<i3>() = 2.0 * (r.get<i3>() - offset2);
-  u.get<i1>() = 0.0;
-  return u;
-}
 
 //==============================================================================
 // SurfaceXCylinder implementation
@@ -480,23 +315,6 @@ Direction HD axis_aligned_cylinder_normal(
 SurfaceXCylinder::SurfaceXCylinder(pugi::xml_node surf_node)
 {
   read_coeffs(surf_node, y0_, z0_, radius_);
-}
-
-HD double SurfaceXCylinder::evaluate(Position const& r) const
-{
-  return axis_aligned_cylinder_evaluate<1, 2>(r, y0_, z0_, radius_);
-}
-
-HD double SurfaceXCylinder::distance(
-  Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_cylinder_distance<0, 1, 2>(r, u, coincident, y0_, z0_,
-                                                 radius_);
-}
-
-HD Direction SurfaceXCylinder::normal(Position const& r) const
-{
-  return axis_aligned_cylinder_normal<0, 1, 2>(r, y0_, z0_);
 }
 
 void SurfaceXCylinder::to_hdf5_inner(hid_t group_id) const
@@ -521,23 +339,6 @@ HD BoundingBox SurfaceXCylinder::bounding_box(bool pos_side) const
 SurfaceYCylinder::SurfaceYCylinder(pugi::xml_node surf_node)
 {
   read_coeffs(surf_node, x0_, z0_, radius_);
-}
-
-HD double SurfaceYCylinder::evaluate(Position const& r) const
-{
-  return axis_aligned_cylinder_evaluate<0, 2>(r, x0_, z0_, radius_);
-}
-
-HD double SurfaceYCylinder::distance(
-  Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_cylinder_distance<1, 0, 2>(r, u, coincident, x0_, z0_,
-                                                 radius_);
-}
-
-HD Direction SurfaceYCylinder::normal(Position const& r) const
-{
-  return axis_aligned_cylinder_normal<1, 0, 2>(r, x0_, z0_);
 }
 
 void SurfaceYCylinder::to_hdf5_inner(hid_t group_id) const
@@ -565,23 +366,6 @@ SurfaceZCylinder::SurfaceZCylinder(pugi::xml_node surf_node)
   read_coeffs(surf_node, x0_, y0_, radius_);
 }
 
-HD double SurfaceZCylinder::evaluate(Position const& r) const
-{
-  return axis_aligned_cylinder_evaluate<0, 1>(r, x0_, y0_, radius_);
-}
-
-HD double SurfaceZCylinder::distance(
-  Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_cylinder_distance<2, 0, 1>(r, u, coincident, x0_, y0_,
-                                                 radius_);
-}
-
-HD Direction SurfaceZCylinder::normal(Position const& r) const
-{
-  return axis_aligned_cylinder_normal<2, 0, 1>(r, x0_, y0_);
-}
-
 void SurfaceZCylinder::to_hdf5_inner(hid_t group_id) const
 {
   write_string(group_id, "type", "z-cylinder", false);
@@ -607,64 +391,6 @@ SurfaceSphere::SurfaceSphere(pugi::xml_node surf_node)
   read_coeffs(surf_node, x0_, y0_, z0_, radius_);
 }
 
-HD double SurfaceSphere::evaluate(Position const& r) const
-{
-  const double x = r.x - x0_;
-  const double y = r.y - y0_;
-  const double z = r.z - z0_;
-  return x*x + y*y + z*z - radius_*radius_;
-}
-
-HD double SurfaceSphere::distance(
-  Position const& r, Direction const& u, bool coincident) const
-{
-  const double x = r.x - x0_;
-  const double y = r.y - y0_;
-  const double z = r.z - z0_;
-  const double k = x*u.x + y*u.y + z*u.z;
-  const double c = x*x + y*y + z*z - radius_*radius_;
-  const double quad = k*k - c;
-
-  if (quad < 0.0) {
-    // No intersection with sphere.
-    return INFTY;
-
-  } else if (coincident || std::abs(c) < FP_COINCIDENT) {
-    // Particle is on the sphere, thus one distance is positive/negative and
-    // the other is zero. The sign of k determines if we are facing in or out.
-    if (k >= 0.0) {
-      return INFTY;
-    } else {
-      return -k + sqrt(quad);
-    }
-
-  } else if (c < 0.0) {
-    // Particle is inside the sphere, thus one distance must be negative and
-    // one must be positive. The positive distance will be the one with
-    // negative sign on sqrt(quad)
-    return -k + sqrt(quad);
-
-  } else {
-    // Particle is outside the sphere, thus both distances are either positive
-    // or negative. If positive, the smaller distance is the one with positive
-    // sign on sqrt(quad).
-    const double d = -k - sqrt(quad);
-    if (d < 0.0) return INFTY;
-    return d;
-  }
-}
-
-HD Direction SurfaceSphere::normal(Position const& r) const
-{
-  return {2.0*(r.x - x0_), 2.0*(r.y - y0_), 2.0*(r.z - z0_)};
-}
-
-void SurfaceSphere::to_hdf5_inner(hid_t group_id) const
-{
-  write_string(group_id, "type", "sphere", false);
-  std::array<double, 4> coeffs {{x0_, y0_, z0_, radius_}};
-  write_dataset(group_id, "coefficients", coeffs);
-}
 
 HD BoundingBox SurfaceSphere::bounding_box(bool pos_side) const
 {
@@ -677,89 +403,12 @@ HD BoundingBox SurfaceSphere::bounding_box(bool pos_side) const
   }
 }
 
-//==============================================================================
-// Generic functions for x-, y-, and z-, cones
-//==============================================================================
 
-// The first template parameter indicates which axis the cone is aligned to.
-// The other two parameters indicate the other two axes.  offset1, offset2,
-// and offset3 should correspond with i1, i2, and i3, respectively.
-template<int i1, int i2, int i3>
-double HD axis_aligned_cone_evaluate(
-  Position const& r, double const& offset1, double const& offset2, double const& offset3, double const& radius_sq)
+void SurfaceSphere::to_hdf5_inner(hid_t group_id) const
 {
-  const double r1 = r.get<i1>() - offset1;
-  const double r2 = r.get<i2>() - offset2;
-  const double r3 = r.get<i3>() - offset3;
-  return r2*r2 + r3*r3 - radius_sq*r1*r1;
-}
-
-// The first template parameter indicates which axis the cone is aligned to.
-// The other two parameters indicate the other two axes.  offset1, offset2,
-// and offset3 should correspond with i1, i2, and i3, respectively.
-template<int i1, int i2, int i3>
-double HD axis_aligned_cone_distance(Position const& r, Direction const& u, bool coincident,
-  double const& offset1, double const& offset2, double const& offset3, double const& radius_sq)
-{
-  const double r1 = r.get<i1>() - offset1;
-  const double r2 = r.get<i2>() - offset2;
-  const double r3 = r.get<i3>() - offset3;
-  const double a = u.get<i2>() * u.get<i2>() + u.get<i3>() * u.get<i3>() -
-                   radius_sq * u.get<i1>() * u.get<i1>();
-  const double k =
-    r2 * u.get<i2>() + r3 * u.get<i3>() - radius_sq * r1 * u.get<i1>();
-  const double c = r2*r2 + r3*r3 - radius_sq*r1*r1;
-  double quad = k*k - a*c;
-
-  double d;
-
-  if (quad < 0.0) {
-    // No intersection with cone.
-    return INFTY;
-
-  } else if (coincident || std::abs(c) < FP_COINCIDENT) {
-    // Particle is on the cone, thus one distance is positive/negative
-    // and the other is zero. The sign of k determines if we are facing in or
-    // out.
-    if (k >= 0.0) {
-      d = (-k - sqrt(quad)) / a;
-    } else {
-      d = (-k + sqrt(quad)) / a;
-    }
-
-  } else {
-    // Calculate both solutions to the quadratic.
-    quad = sqrt(quad);
-    d = (-k - quad) / a;
-    const double b = (-k + quad) / a;
-
-    // Determine the smallest positive solution.
-    if (d < 0.0) {
-      if (b > 0.0) d = b;
-    } else {
-      if (b > 0.0) {
-        if (b < d) d = b;
-      }
-    }
-  }
-
-  // If the distance was negative, set boundary distance to infinity.
-  if (d <= 0.0) return INFTY;
-  return d;
-}
-
-// The first template parameter indicates which axis the cone is aligned to.
-// The other two parameters indicate the other two axes.  offset1, offset2,
-// and offset3 should correspond with i1, i2, and i3, respectively.
-template<int i1, int i2, int i3>
-Direction HD axis_aligned_cone_normal(
-  Position const& r, double const& offset1, double const& offset2, double const& offset3, double const& radius_sq)
-{
-  Direction u;
-  u.get<i1>() = -2.0 * radius_sq * (r.get<i1>() - offset1);
-  u.get<i2>() = 2.0 * (r.get<i2>() - offset2);
-  u.get<i3>() = 2.0 * (r.get<i3>() - offset3);
-  return u;
+  write_string(group_id, "type", "sphere", false);
+  std::array<double, 4> coeffs {{x0_, y0_, z0_, radius_}};
+  write_dataset(group_id, "coefficients", coeffs);
 }
 
 //==============================================================================
@@ -769,22 +418,6 @@ Direction HD axis_aligned_cone_normal(
 SurfaceXCone::SurfaceXCone(pugi::xml_node surf_node)
 {
   read_coeffs(surf_node, x0_, y0_, z0_, radius_sq_);
-}
-
-HD double SurfaceXCone::evaluate(Position const& r) const
-{
-  return axis_aligned_cone_evaluate<0, 1, 2>(r, x0_, y0_, z0_, radius_sq_);
-}
-
-HD double SurfaceXCone::distance(Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_cone_distance<0, 1, 2>(r, u, coincident, x0_, y0_, z0_,
-                                             radius_sq_);
-}
-
-HD Direction SurfaceXCone::normal(Position const& r) const
-{
-  return axis_aligned_cone_normal<0, 1, 2>(r, x0_, y0_, z0_, radius_sq_);
 }
 
 void SurfaceXCone::to_hdf5_inner(hid_t group_id) const
@@ -803,22 +436,6 @@ SurfaceYCone::SurfaceYCone(pugi::xml_node surf_node)
   read_coeffs(surf_node, x0_, y0_, z0_, radius_sq_);
 }
 
-HD double SurfaceYCone::evaluate(Position const& r) const
-{
-  return axis_aligned_cone_evaluate<1, 0, 2>(r, y0_, x0_, z0_, radius_sq_);
-}
-
-HD double SurfaceYCone::distance(Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_cone_distance<1, 0, 2>(r, u, coincident, y0_, x0_, z0_,
-                                             radius_sq_);
-}
-
-HD Direction SurfaceYCone::normal(Position const& r) const
-{
-  return axis_aligned_cone_normal<1, 0, 2>(r, y0_, x0_, z0_, radius_sq_);
-}
-
 void SurfaceYCone::to_hdf5_inner(hid_t group_id) const
 {
   write_string(group_id, "type", "y-cone", false);
@@ -835,22 +452,6 @@ SurfaceZCone::SurfaceZCone(pugi::xml_node surf_node)
   read_coeffs(surf_node, x0_, y0_, z0_, radius_sq_);
 }
 
-HD double SurfaceZCone::evaluate(Position const& r) const
-{
-  return axis_aligned_cone_evaluate<2, 0, 1>(r, z0_, x0_, y0_, radius_sq_);
-}
-
-HD double SurfaceZCone::distance(Position const& r, Direction const& u, bool coincident) const
-{
-  return axis_aligned_cone_distance<2, 0, 1>(r, u, coincident, z0_, x0_, y0_,
-                                             radius_sq_);
-}
-
-HD Direction SurfaceZCone::normal(Position const& r) const
-{
-  return axis_aligned_cone_normal<2, 0, 1>(r, z0_, x0_, y0_, radius_sq_);
-}
-
 void SurfaceZCone::to_hdf5_inner(hid_t group_id) const
 {
   write_string(group_id, "type", "z-cone", false);
@@ -865,92 +466,6 @@ void SurfaceZCone::to_hdf5_inner(hid_t group_id) const
 SurfaceQuadric::SurfaceQuadric(pugi::xml_node surf_node)
 {
   read_coeffs(surf_node, A_, B_, C_, D_, E_, F_, G_, H_, J_, K_);
-}
-
-double HD SurfaceQuadric::evaluate(Position const& r) const
-{
-  const double x = r.x;
-  const double y = r.y;
-  const double z = r.z;
-  return x*(A_*x + D_*y + G_) +
-         y*(B_*y + E_*z + H_) +
-         z*(C_*z + F_*x + J_) + K_;
-}
-
-double HD SurfaceQuadric::distance(
-  Position const& r, Direction const& ang, bool coincident) const
-{
-  const double &x = r.x;
-  const double &y = r.y;
-  const double &z = r.z;
-  const double &u = ang.x;
-  const double &v = ang.y;
-  const double &w = ang.z;
-
-  const double a = A_*u*u + B_*v*v + C_*w*w + D_*u*v + E_*v*w + F_*u*w;
-  const double k = A_*u*x + B_*v*y + C_*w*z + 0.5*(D_*(u*y + v*x)
-                   + E_*(v*z + w*y) + F_*(w*x + u*z) + G_*u + H_*v + J_*w);
-  const double c = A_*x*x + B_*y*y + C_*z*z + D_*x*y + E_*y*z +  F_*x*z + G_*x
-                   + H_*y + J_*z + K_;
-  double quad = k*k - a*c;
-
-  double d;
-
-  if (quad < 0.0) {
-    // No intersection with surface.
-    return INFTY;
-
-  } else if (coincident || std::abs(c) < FP_COINCIDENT) {
-    // Particle is on the surface, thus one distance is positive/negative and
-    // the other is zero. The sign of k determines which distance is zero and
-    // which is not. Additionally, if a is zero, it means the particle is on
-    // a plane-like surface.
-    if (a == 0.0) {
-      d = INFTY; // see the below explanation
-    } else if (k >= 0.0) {
-      d = (-k - sqrt(quad)) / a;
-    } else {
-      d = (-k + sqrt(quad)) / a;
-    }
-
-  } else if (a == 0.0) {
-    // Given the orientation of the particle, the quadric looks like a plane in
-    // this case, and thus we have only one solution despite potentially having
-    // quad > 0.0. While the term under the square root may be real, in one
-    // case of the +/- of the quadratic formula, 0/0 results, and in another, a
-    // finite value over 0 results. Applying L'Hopital's to the 0/0 case gives
-    // the below. Alternatively this can be found by simply putting a=0 in the
-    // equation ax^2 + bx + c = 0.
-    d = -0.5 * c / k;
-  } else {
-    // Calculate both solutions to the quadratic.
-    quad = sqrt(quad);
-    d = (-k - quad) / a;
-    double b = (-k + quad) / a;
-
-    // Determine the smallest positive solution.
-    if (d < 0.0) {
-      if (b > 0.0) d = b;
-    } else {
-      if (b > 0.0) {
-        if (b < d) d = b;
-      }
-    }
-  }
-
-  // If the distance was negative, set boundary distance to infinity.
-  if (d <= 0.0) return INFTY;
-  return d;
-}
-
-Direction HD SurfaceQuadric::normal(Position const& r) const
-{
-  const double &x = r.x;
-  const double &y = r.y;
-  const double &z = r.z;
-  return {2.0*A_*x + D_*y + F_*z + G_,
-          2.0*B_*y + D_*x + E_*z + H_,
-          2.0*C_*z + E_*y + F_*x + J_};
 }
 
 void SurfaceQuadric::to_hdf5_inner(hid_t group_id) const
