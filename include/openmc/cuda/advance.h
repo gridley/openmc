@@ -14,9 +14,9 @@ extern __managed__ unsigned managed_surface_crossing_queue_index;
 extern __managed__ unsigned managed_collision_queue_index;
 
 __global__ void process_advance_events_device(
-  EventQueueItem* __restrict__ queue, unsigned queue_size,
-  EventQueueItem* __restrict__ surface_crossing_queue,
-  EventQueueItem* __restrict__ collision_queue);
+  unsigned* __restrict__ queue,
+  unsigned* __restrict__ surface_crossing_queue,
+  unsigned* __restrict__ collision_queue);
 
 } // namespace gpu
 } // namespace openmc

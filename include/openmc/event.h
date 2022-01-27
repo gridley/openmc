@@ -76,9 +76,9 @@ namespace simulation {
 // is provided which controls the append operations using atomics.
 extern SharedArray<EventQueueItem> calculate_fuel_xs_queue;
 extern SharedArray<EventQueueItem> calculate_nonfuel_xs_queue;
-extern SharedArray<EventQueueItem> advance_particle_queue;
-extern SharedArray<EventQueueItem> surface_crossing_queue;
-extern SharedArray<EventQueueItem> collision_queue;
+extern SharedArray<unsigned> advance_particle_queue;
+extern SharedArray<unsigned> surface_crossing_queue;
+extern SharedArray<unsigned> collision_queue;
 extern SharedArray<unsigned> dead_particle_indices;
 
 // Particle buffer

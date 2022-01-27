@@ -784,8 +784,7 @@ void transport_history_based_single_particle(Particle& p)
 {
 #ifdef __CUDACC__
   fatal_error("Cannot use history mode with CUDA version at the moment.");
-#endif
-
+#else
   while (true) {
     p.event_calculate_xs();
     p.event_advance();
@@ -799,6 +798,7 @@ void transport_history_based_single_particle(Particle& p)
       break;
   }
   p.event_death();
+#endif
 }
 
 void transport_history_based()

@@ -6,12 +6,12 @@ namespace openmc {
 namespace gpu {
 
 __global__ void process_collision_events_device(
-  EventQueueItem* __restrict__ queue, unsigned queue_size,
+  unsigned* __restrict__ queue, unsigned queue_size,
   EventQueueItem* __restrict__ calculate_nonfuel_xs_queue,
   EventQueueItem* __restrict__ calculate_fuel_xs_queue)
 {
-  unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
-  unsigned p_idx = tid < queue_size ? queue[tid].idx : 0;
+  const unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
+  const unsigned p_idx = tid < queue_size ? queue[tid] : 0;
   Particle p(p_idx);
 
   if (tid < queue_size) {

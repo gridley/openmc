@@ -83,7 +83,6 @@ void allocate_soa_data()
   keff_tally_tracklength.resize(particles_in_flight);
   keff_tally_leakage.resize(particles_in_flight);
   trace.resize(particles_in_flight);
-  collision_distance.resize(particles_in_flight);
   n_event.resize(particles_in_flight);
 #ifdef DAGMC
   history.resize(particles_in_flight);
@@ -217,8 +216,6 @@ void allocate_soa_data()
   cudaMemcpyToSymbol(soa::gpu::keff_tally_leakage, &tmp, sizeof(void*));
   tmp = trace.data();
   cudaMemcpyToSymbol(soa::gpu::trace, &tmp, sizeof(void*));
-  tmp = collision_distance.data();
-  cudaMemcpyToSymbol(soa::gpu::collision_distance, &tmp, sizeof(void*));
   tmp = n_event.data();
   cudaMemcpyToSymbol(soa::gpu::n_event, &tmp, sizeof(void*));
   tmp = n_progeny.data();
@@ -331,8 +328,6 @@ void allocate_soa_data()
   cudaMemcpyToSymbol(soa::gpu::keff_tally_leakage, &tmp, sizeof(void*));
   tmp = trace.data();
   cudaMemcpyToSymbol(soa::gpu::trace, &tmp, sizeof(void*));
-  tmp = collision_distance.data();
-  cudaMemcpyToSymbol(soa::gpu::collision_distance, &tmp, sizeof(void*));
   tmp = n_event.data();
   cudaMemcpyToSymbol(soa::gpu::n_event, &tmp, sizeof(void*));
   tmp = n_progeny.data();
@@ -409,7 +404,6 @@ vector<double> keff_tally_collision;
 vector<double> keff_tally_tracklength;
 vector<double> keff_tally_leakage;
 vector<char> trace;
-vector<double> collision_distance;
 vector<int> n_event;
 vector<int64_t> n_progeny;
 
@@ -468,7 +462,6 @@ __constant__ double* keff_tally_collision;
 __constant__ double* keff_tally_tracklength;
 __constant__ double* keff_tally_leakage;
 __constant__ char* trace;
-__constant__ double* collision_distance;
 __constant__ int* n_event;
 __constant__ int64_t* n_progeny;
 } // namespace gpu

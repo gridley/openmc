@@ -170,42 +170,37 @@ Particle::event_advance()
   boundary() = distance_to_boundary(*this);
 
   // Sample a distance to collision
+  double collision_distance;
   if (type() == ParticleType::electron || type() == ParticleType::positron) {
-    collision_distance() = 0.0;
+    collision_distance = 0.0;
   } else if (macro_xs().total == 0.0) {
-    collision_distance() = INFINITY;
+    collision_distance = INFINITY;
   } else {
-    collision_distance() = -std::log(prn(current_seed())) / macro_xs().total;
+    collision_distance = -std::log(prn(current_seed())) / macro_xs().total;
   }
 
   // Select smaller of the two distances
-  double distance = std::min(boundary().distance, collision_distance());
+  double distance = std::min(boundary().distance, collision_distance);
 
   // Advance particle
   for (int j = 0; j < n_coord(); ++j) {
     coord(j).r += distance * coord(j).u;
   }
 
-  // TODO
-#ifndef __CUDA_ARCH__
   // Score track-length tallies
   if (!model::active_tracklength_tallies.empty()) {
     score_tracklength_tally(*this, distance);
   }
-#endif
 
   // Score track-length estimate of k-eff
   if (type() == ParticleType::neutron) {
     keff_tally_tracklength() += wgt() * distance * macro_xs().neutron.nu_fission;
   }
 
-  // TODO
-#ifndef __CUDA_ARCH__
   // Score flux derivative accumulators for differential tallies.
   if (!model::active_tallies.empty()) {
     score_track_derivative(*this, distance);
   }
-#endif
 }
 
 void

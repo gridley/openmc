@@ -104,7 +104,6 @@ extern vector<double> keff_tally_collision;
 extern vector<double> keff_tally_tracklength;
 extern vector<double> keff_tally_leakage;
 extern vector<char> trace;
-extern vector<double> collision_distance;
 extern vector<int> n_event;
 extern vector<int64_t> n_progeny;
 
@@ -163,7 +162,6 @@ extern __constant__ double* keff_tally_collision;
 extern __constant__ double* keff_tally_tracklength;
 extern __constant__ double* keff_tally_leakage;
 extern __constant__ char* trace;
-extern __constant__ double* collision_distance;
 extern __constant__ int* n_event;
 extern __constant__ int64_t* n_progeny;
 } // namespace gpu
@@ -917,14 +915,6 @@ public:
     return soa::gpu::trace[p];
 #else
     return soa::trace[p];
-#endif
-  }
-  HD double& collision_distance()
-  {
-#ifdef __CUDA_ARCH__
-    return soa::gpu::collision_distance[p];
-#else
-    return soa::collision_distance[p];
 #endif
   }
   HD int& n_event()

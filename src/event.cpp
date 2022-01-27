@@ -32,9 +32,9 @@ namespace simulation {
 
 SharedArray<EventQueueItem> calculate_fuel_xs_queue;
 SharedArray<EventQueueItem> calculate_nonfuel_xs_queue;
-SharedArray<EventQueueItem> advance_particle_queue;
-SharedArray<EventQueueItem> surface_crossing_queue;
-SharedArray<EventQueueItem> collision_queue;
+SharedArray<unsigned> advance_particle_queue;
+SharedArray<unsigned> surface_crossing_queue;
+SharedArray<unsigned> collision_queue;
 SharedArray<unsigned> dead_particle_indices;
 
 vector<Particle> particles;
@@ -137,8 +137,10 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
   catchCudaErrors("process_calculate_xs_events_device");
 
   auto size_before = simulation::advance_particle_queue.size();
-  cudaMemcpy(simulation::advance_particle_queue.end(), queue.begin(),
-    queue.size() * sizeof(EventQueueItem), cudaMemcpyDeviceToDevice);
+  // cudaMemcpy(simulation::advance_particle_queue.end(), queue.begin(),
+  //   queue.size() * sizeof(EventQueueItem), cudaMemcpyDeviceToDevice);
+  cudaMemcpy2D(simulation::advance_particle_queue.end(), sizeof(unsigned),
+      queue.begin(), sizeof(EventQueueItem), sizeof(unsigned), queue.size(), cudaMemcpyDeviceToDevice);
   simulation::advance_particle_queue.updateIndex(size_before + queue.size());
   queue.resize(0);
 
@@ -156,10 +158,19 @@ void process_advance_particle_events()
     simulation::surface_crossing_queue.size();
   gpu::managed_collision_queue_index = simulation::collision_queue.size();
 
-  gpu::process_advance_events_device<<<
-    simulation::advance_particle_queue.size() / gpu::thread_block_size + 1,
-    gpu::thread_block_size>>>(simulation::advance_particle_queue.data(),
-    simulation::advance_particle_queue.size(),
+  thrust::sort(thrust::device,
+      simulation::advance_particle_queue.begin(), simulation::advance_particle_queue.end());
+
+  auto n_blocks = simulation::advance_particle_queue.size() / gpu::thread_block_size;
+  // Number of particles to run is less than thread block size
+  const auto n_threads = n_blocks == 0 ? simulation::advance_particle_queue.size() :
+    gpu::thread_block_size;
+  if (n_blocks == 0) {
+    n_blocks = 1;
+  }
+  const unsigned n_remaining = simulation::advance_particle_queue.size() - n_threads * n_blocks;
+
+  gpu::process_advance_events_device<<<n_blocks, n_threads>>>(simulation::advance_particle_queue.data() + n_remaining,
     simulation::surface_crossing_queue.data(),
     simulation::collision_queue.data());
   cudaDeviceSynchronize();
@@ -170,7 +181,7 @@ void process_advance_particle_events()
   simulation::collision_queue.updateIndex(gpu::managed_collision_queue_index);
 #endif
 
-  simulation::advance_particle_queue.resize(0);
+  simulation::advance_particle_queue.resize(n_remaining);
 }
 
 void process_surface_crossing_events()
@@ -182,6 +193,10 @@ void process_surface_crossing_events()
     simulation::calculate_nonfuel_xs_queue.size();
   gpu::managed_calculate_fuel_queue_index =
     simulation::calculate_fuel_xs_queue.size();
+
+  thrust::sort(thrust::device,
+      simulation::surface_crossing_queue.begin(),
+      simulation::surface_crossing_queue.end());
 
   gpu::process_surface_crossing_events_device<<<
     simulation::surface_crossing_queue.size() / gpu::thread_block_size + 1,
