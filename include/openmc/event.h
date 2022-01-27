@@ -56,6 +56,14 @@ struct EventQueueItem{
   bool operator<(const EventQueueItem& rhs) const { return E < rhs.E; }
 };
 
+struct EventCounter {
+  uint64_t num_fuel_xs_processed {0};
+  uint64_t num_nonfuel_xs_processed {0};
+  uint64_t num_advance_processed {0};
+  uint64_t num_surface_cross_processed {0};
+  uint64_t num_collision_processed {0};
+};
+
 //==============================================================================
 // Global variable declarations
 //==============================================================================
@@ -75,6 +83,9 @@ extern SharedArray<unsigned> dead_particle_indices;
 
 // Particle buffer
 extern vector<Particle> particles;
+
+extern EventCounter inactive_count;
+extern EventCounter active_count;
 
 } // namespace simulation
 

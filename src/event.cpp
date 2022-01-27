@@ -39,6 +39,9 @@ SharedArray<unsigned> dead_particle_indices;
 
 vector<Particle> particles;
 
+EventCounter inactive_count;
+EventCounter active_count;
+
 } // namespace simulation
 
 //==============================================================================
@@ -81,21 +84,6 @@ void free_event_queues(void)
   simulation::particles.clear();
 }
 
-void dispatch_xs_event(unsigned buffer_idx)
-{
-  fatal_error("Cannot call dispath_xs_event since it's been replaced with GPU "
-              "code and I'm not sure if this is even used on CPU now.");
-#ifdef __CUDACC__
-  Particle p(buffer_idx);
-  if (p.material() == MATERIAL_VOID ||
-      !model::materials[p.material()]->fissionable_) {
-    simulation::calculate_nonfuel_xs_queue.thread_safe_append({p, buffer_idx});
-  } else {
-    simulation::calculate_fuel_xs_queue.thread_safe_append({p, buffer_idx});
-  }
-#endif
-}
-
 void process_init_events(unsigned n_particles, unsigned source_offset)
 {
   if (!gpu::cuda_profile || (overall_generation() > 1))
@@ -129,15 +117,12 @@ void process_init_events(unsigned n_particles, unsigned source_offset)
 
 void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 {
-
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_sort.start();
+  simulation::time_event_sort.start();
   // TODO sorting is not helping performance in any way...
   // thrust::sort(queue.begin(), queue.end());
   // cudaDeviceSynchronize();
   simulation::time_event_sort.stop();
 
-  simulation::time_event_calculate_xs.start();
 #ifdef __CUDACC__
   if (settings::temperature_multipole) {
     gpu::process_calculate_xs_events_device_wmp<<<
@@ -158,15 +143,10 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
   queue.resize(0);
 
 #endif
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_calculate_xs.stop();
 }
 
 void process_advance_particle_events()
 {
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_advance_particle.start();
-
 #ifdef __CUDACC__
   // Can't put SharedArrays in managed memory, so these intermediate variables
   // are used to allow pushing back within the kernel. They are both markers
@@ -191,16 +171,10 @@ void process_advance_particle_events()
 #endif
 
   simulation::advance_particle_queue.resize(0);
-
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_advance_particle.stop();
 }
 
 void process_surface_crossing_events()
 {
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_surface_crossing.start();
-
 #ifdef __CUDACC__
   // Set initial positions of the XS calculation queues for appending
   // while running on GPU
@@ -225,16 +199,10 @@ void process_surface_crossing_events()
 #endif
 
   simulation::surface_crossing_queue.resize(0);
-
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_surface_crossing.stop();
 }
 
 void process_collision_events()
 {
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_collision.start();
-
 #ifdef __CUDACC__
   auto fission_bank_start = simulation::fission_bank.data();
   unsigned fission_bank_capacity = simulation::fission_bank.capacity();
@@ -269,15 +237,12 @@ void process_collision_events()
   simulation::collision_queue.resize(0);
 
 #endif
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_collision.stop();
 }
 
 unsigned process_refill_events(unsigned remaining_work, unsigned source_offset)
 {
 #ifdef __CUDACC__
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_refill.start();
+  simulation::time_event_refill.start();
 
   // Firstly, do a compaction on particle indices storing
   // dead particles. This is similar to copy_if, but we want
@@ -313,8 +278,7 @@ unsigned process_refill_events(unsigned remaining_work, unsigned source_offset)
   simulation::calculate_fuel_xs_queue.updateIndex(
     gpu::managed_calculate_fuel_queue_index);
 
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_refill.stop();
+  simulation::time_event_refill.stop();
 #else
   fatal_error("TODO add CPU implementation of event-mode refill");
   unsigned num_particles_refilled = 0;
@@ -324,8 +288,7 @@ unsigned process_refill_events(unsigned remaining_work, unsigned source_offset)
 
 void process_death_events(unsigned n_particles)
 {
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_death.start();
+  simulation::time_event_death.start();
 #ifdef __CUDACC__
   // TODO do parallel reduce on particle global tallies here.
   // Doesn't matter that much for performance tho
@@ -334,8 +297,7 @@ void process_death_events(unsigned n_particles)
   cudaDeviceSynchronize();
 #endif
 
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_death.stop();
+  simulation::time_event_death.stop();
 }
 
 } // namespace openmc

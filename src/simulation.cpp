@@ -833,6 +833,10 @@ void transport_event_based()
   remaining_work -= n_particles;
   source_offset += n_particles;
 
+  const bool is_active = simulation::current_batch >= settings::n_inactive + 1;
+  EventCounter* counter = is_active ? &simulation::active_count : &simulation::inactive_count;
+  EventTimers * timer = is_active ? &simulation::active_event_timers : &simulation::inactive_event_timers;
+
   // Event-based transport loop
   while (true) {
     // Determine which event kernel has the longest queue
@@ -846,15 +850,39 @@ void transport_event_based()
     if (max == 0) {
       break;
     } else if (max == simulation::calculate_fuel_xs_queue.size()) {
+
+      timer->time_event_calculate_fuel_xs.start();
       process_calculate_xs_events(simulation::calculate_fuel_xs_queue);
+      timer->time_event_calculate_fuel_xs.stop();
+      counter->num_fuel_xs_processed += max;
+
     } else if (max == simulation::calculate_nonfuel_xs_queue.size()) {
+
+      timer->time_event_calculate_nonfuel_xs.start();
       process_calculate_xs_events(simulation::calculate_nonfuel_xs_queue);
+      timer->time_event_calculate_nonfuel_xs.stop();
+      counter->num_nonfuel_xs_processed += max;
+
     } else if (max == simulation::advance_particle_queue.size()) {
+
+      timer->time_event_advance.start();
       process_advance_particle_events();
+      timer->time_event_advance.stop();
+      counter->num_advance_processed += max;
+
     } else if (max == simulation::surface_crossing_queue.size()) {
+
+      timer->time_event_surface_crossing.start();
       process_surface_crossing_events();
+      timer->time_event_surface_crossing.stop();
+      counter->num_surface_cross_processed += max;
+
     } else if (max == simulation::collision_queue.size()) {
+
+      timer->time_event_collision.start();
       process_collision_events();
+      timer->time_event_collision.stop();
+      counter->num_collision_processed += max;
     }
 
     if (event_iteration % settings::event_queue_refill_interval == 0 &&

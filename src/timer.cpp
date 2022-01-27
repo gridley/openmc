@@ -22,10 +22,10 @@ Timer time_total;
 Timer time_transport;
 Timer time_event_init;
 Timer time_event_sort;
-Timer time_event_calculate_xs;
-Timer time_event_advance_particle;
-Timer time_event_surface_crossing;
-Timer time_event_collision;
+
+EventTimers inactive_event_timers;
+EventTimers active_event_timers;
+
 Timer time_event_refill;
 Timer time_event_death;
 
@@ -82,10 +82,10 @@ void reset_timers()
   simulation::time_total.reset();
   simulation::time_transport.reset();
   simulation::time_event_init.reset();
-  simulation::time_event_calculate_xs.reset();
-  simulation::time_event_advance_particle.reset();
-  simulation::time_event_surface_crossing.reset();
-  simulation::time_event_collision.reset();
+
+  simulation::inactive_event_timers.reset();
+  simulation::active_event_timers.reset();
+
   simulation::time_event_death.reset();
 }
 

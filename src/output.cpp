@@ -23,6 +23,7 @@
 #include "openmc/constants.h"
 #include "openmc/eigenvalue.h"
 #include "openmc/error.h"
+#include "openmc/event.h"
 #include "openmc/geometry.h"
 #include "openmc/lattice.h"
 #include "openmc/math_functions.h"
@@ -382,6 +383,14 @@ void show_time(const char* label, double secs, int indent_level=0)
     "", 2*indent_level, label, width, secs);
 }
 
+void show_per_event_time(const char* label, uint64_t n_events, double tot_time, int indent_level=0)
+{
+  const double n_event_double = static_cast<double>(n_events);
+  int width = 33 - indent_level*2;
+  fmt::print("{0:{1}} {2:<{3}} = {4:>10.4e} ns\n",
+    "", 2*indent_level, label, width, tot_time/n_event_double*1e9);
+}
+
 void show_rate(const char* label, double particles_per_sec)
 {
   fmt::print(" {:<33} = {:.6} particles/second\n", label, particles_per_sec);
@@ -404,17 +413,47 @@ void print_runtime()
   if (settings::event_based) {
     show_time("Particle initialization", time_event_init.elapsed(), 2);
     show_time("Queue sorting", time_event_sort.elapsed(), 2);
-    show_time("XS lookups", time_event_calculate_xs.elapsed(), 2);
-    show_time("Advancing", time_event_advance_particle.elapsed(), 2);
-    show_time("Surface crossings", time_event_surface_crossing.elapsed(), 2);
-    show_time("Collisions", time_event_collision.elapsed(), 2);
+    show_time("Fuel XS lookups", active_event_timers.time_event_calculate_fuel_xs.elapsed()
+        + inactive_event_timers.time_event_calculate_fuel_xs.elapsed(), 2);
+    show_time("Nonfuel XS lookups", active_event_timers.time_event_calculate_nonfuel_xs.elapsed() +
+        inactive_event_timers.time_event_calculate_nonfuel_xs.elapsed(), 2);
+    show_time("Advancing", active_event_timers.time_event_advance.elapsed() +
+        inactive_event_timers.time_event_advance.elapsed(), 2);
+    show_time("Surface crossings", active_event_timers.time_event_surface_crossing.elapsed() +
+        inactive_event_timers.time_event_surface_crossing.elapsed(), 2);
+    show_time("Collisions", active_event_timers.time_event_collision.elapsed() +
+        inactive_event_timers.time_event_collision.elapsed(), 2);
     show_time("Particle refilling", time_event_refill.elapsed(), 2);
     show_time("Particle death", time_event_death.elapsed(), 2);
   }
   if (settings::run_mode == RunMode::EIGENVALUE) {
     show_time("Time in inactive batches", time_inactive.elapsed(), 1);
+    if (settings::event_based) {
+      show_per_event_time("Per fuel XS lookup", simulation::inactive_count.num_fuel_xs_processed,
+          inactive_event_timers.time_event_calculate_fuel_xs.elapsed(), 2);
+      show_per_event_time("Per nonfuel XS lookup", simulation::inactive_count.num_nonfuel_xs_processed,
+          inactive_event_timers.time_event_calculate_nonfuel_xs.elapsed(), 2);
+      show_per_event_time("Per advance", simulation::inactive_count.num_advance_processed,
+          inactive_event_timers.time_event_advance.elapsed(), 2);
+      show_per_event_time("Per surface crossing", simulation::inactive_count.num_surface_cross_processed,
+          inactive_event_timers.time_event_surface_crossing.elapsed(), 2);
+      show_per_event_time("Per collision", simulation::inactive_count.num_collision_processed,
+          inactive_event_timers.time_event_collision.elapsed(), 2);
+    }
   }
   show_time("Time in active batches", time_active.elapsed(), 1);
+  if (settings::event_based) {
+    show_per_event_time("Per fuel XS lookup", simulation::active_count.num_fuel_xs_processed,
+        active_event_timers.time_event_calculate_fuel_xs.elapsed(), 2);
+    show_per_event_time("Per nonfuel XS lookup", simulation::active_count.num_nonfuel_xs_processed,
+        active_event_timers.time_event_calculate_nonfuel_xs.elapsed(), 2);
+    show_per_event_time("Per advance", simulation::active_count.num_advance_processed,
+        active_event_timers.time_event_advance.elapsed(), 2);
+    show_per_event_time("Per surface crossing", simulation::active_count.num_surface_cross_processed,
+        active_event_timers.time_event_surface_crossing.elapsed(), 2);
+    show_per_event_time("Per collision", simulation::active_count.num_collision_processed,
+        active_event_timers.time_event_collision.elapsed(), 2);
+  }
   if (settings::run_mode == RunMode::EIGENVALUE) {
     show_time("Time synchronizing fission bank", time_bank.elapsed(), 1);
     show_time("Sampling source sites", time_bank_sample.elapsed(), 2);
