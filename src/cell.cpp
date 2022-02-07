@@ -200,7 +200,11 @@ CSGCell::CSGCell(pugi::xml_node cell_node)
       material_.reserve(mats.size());
       for (std::string mat : mats) {
         if (mat.compare("void") == 0) {
-          material_.push_back(MATERIAL_VOID);
+          // THis is to avoid a branch in the XS lookup kernel. Because most of the time,
+          // voids are indeed filled with gas, the solution here is to just define a material
+          // with no nuclides in it.
+          fatal_error("Void materials not treated correctly in GPU mode!");
+          // material_.push_back(MATERIAL_VOID);
         } else {
           material_.push_back(std::stoi(mat));
         }

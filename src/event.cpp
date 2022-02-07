@@ -124,15 +124,22 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
     simulation::time_event_sort.stop();
   }
 
+  auto n_blocks = queue.size() / gpu::thread_block_size;
+  // Number of particles to run is less than thread block size
+  const auto n_threads = n_blocks == 0 ? queue.size() :
+    gpu::thread_block_size;
+  if (n_blocks == 0) {
+    n_blocks = 1;
+  }
+  const unsigned n_remaining = queue.size() - n_threads * n_blocks;
+
 #ifdef __CUDACC__
   if (settings::temperature_multipole) {
-    gpu::process_calculate_xs_events_device_wmp<<<
-      queue.size() / gpu::thread_block_size + 1, gpu::thread_block_size>>>(
-      queue.data(), queue.size());
+    gpu::process_calculate_xs_events_device_wmp<<<n_blocks, n_threads>>>(
+      queue.data()+n_remaining);
   } else {
-    gpu::process_calculate_xs_events_device<<<
-      queue.size() / gpu::thread_block_size + 1, gpu::thread_block_size>>>(
-      queue.data(), queue.size());
+    gpu::process_calculate_xs_events_device<<<n_blocks, n_threads>>>(
+      queue.data()+n_remaining);
   }
   cudaDeviceSynchronize();
   catchCudaErrors("process_calculate_xs_events_device");
@@ -141,9 +148,9 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
   // cudaMemcpy(simulation::advance_particle_queue.end(), queue.begin(),
   //   queue.size() * sizeof(EventQueueItem), cudaMemcpyDeviceToDevice);
   cudaMemcpy2D(simulation::advance_particle_queue.end(), sizeof(unsigned),
-      queue.begin(), sizeof(EventQueueItem), sizeof(unsigned), queue.size(), cudaMemcpyDeviceToDevice);
-  simulation::advance_particle_queue.updateIndex(size_before + queue.size());
-  queue.resize(0);
+      queue.begin()+n_remaining, sizeof(EventQueueItem), sizeof(unsigned), queue.size()-n_remaining, cudaMemcpyDeviceToDevice);
+  simulation::advance_particle_queue.updateIndex(size_before + queue.size() - n_remaining);
+  queue.resize(n_remaining);
 
 #endif
 }

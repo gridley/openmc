@@ -285,13 +285,11 @@ __managed__ unsigned managed_calculate_fuel_queue_index;
 __managed__ unsigned managed_calculate_nonfuel_queue_index;
 
 __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device(
-  EventQueueItem* __restrict__ queue, unsigned queue_size)
+  EventQueueItem* __restrict__ queue)
 {
   using EmissionMode = ReactionProduct::EmissionMode;
 
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (tid >= queue_size)
-    return;
   Particle p(queue[tid].idx);
   auto const E = __ldg(&queue[tid].E);
   auto const mat_idx = __ldg(&queue[tid].material);
@@ -311,10 +309,6 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device(
   p.macro_xs().neutron.absorption = 0.0;
   p.macro_xs().neutron.fission = 0.0;
   p.macro_xs().neutron.nu_fission = 0.0;
-
-  // Skip void material
-  if (mat_idx == -1)
-    return;
 
   Material const& m = *materials[mat_idx];
 
@@ -615,13 +609,11 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device(
 }
 
 __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_wmp(
-  EventQueueItem* __restrict__ queue, unsigned queue_size)
+  EventQueueItem* __restrict__ queue)
 {
   using EmissionMode = ReactionProduct::EmissionMode;
 
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (tid >= queue_size)
-    return;
   Particle p(queue[tid].idx);
   auto const E = __ldg(&queue[tid].E);
   auto const mat_idx = __ldg(&queue[tid].material);
@@ -641,10 +633,6 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
   p.macro_xs().neutron.absorption = 0.0;
   p.macro_xs().neutron.fission = 0.0;
   p.macro_xs().neutron.nu_fission = 0.0;
-
-  // Skip void material
-  if (mat_idx == -1)
-    return;
 
   Material const& m = *materials[mat_idx];
 
