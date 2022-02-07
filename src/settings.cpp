@@ -142,6 +142,7 @@ __constant__ bool urr_ptables_on;
 
 unsigned thread_block_size {BLOCKSIZE};
 bool cuda_profile {false};
+bool sort_xs_lookup {false};
 } // namespace gpu
 #endif
 
@@ -907,6 +908,9 @@ void read_settings_xml()
     gpu::cuda_profile = get_node_value_bool(root, "cuda_profile");
     if (gpu::cuda_profile)
       warning("Using CUDA profiler API to start profiling on second generation.");
+  }
+  if (check_for_node(root, "sort_xs_lookup")) {
+    gpu::sort_xs_lookup = get_node_value_bool(root, "sort_xs_lookup");
   }
 #endif
 

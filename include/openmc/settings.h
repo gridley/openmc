@@ -111,7 +111,6 @@ extern double weight_cutoff;         //!< Weight cutoff for Russian roulette
 extern double weight_survive;        //!< Survival weight after Russian roulette
 extern int debugger_attach_delay; //!< Pause this many seconds before tracking
                                   //!< to attach debugger
-
 } // namespace settings
 
 #ifdef __CUDACC__
@@ -134,6 +133,7 @@ extern unsigned thread_block_size;
 
 // whether to use the cuda profiler. Just calls start/stop on profiler API.
 extern bool cuda_profile;
+extern bool sort_xs_lookup;
 } // namespace gpu
 #endif
 

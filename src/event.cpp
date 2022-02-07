@@ -117,11 +117,12 @@ void process_init_events(unsigned n_particles, unsigned source_offset)
 
 void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 {
-  simulation::time_event_sort.start();
-  // TODO sorting is not helping performance in any way...
-  // thrust::sort(queue.begin(), queue.end());
-  // cudaDeviceSynchronize();
-  simulation::time_event_sort.stop();
+  if (gpu::sort_xs_lookup) {
+    simulation::time_event_sort.start();
+    thrust::sort(thrust::device, queue.begin(), queue.end());
+    cudaDeviceSynchronize();
+    simulation::time_event_sort.stop();
+  }
 
 #ifdef __CUDACC__
   if (settings::temperature_multipole) {

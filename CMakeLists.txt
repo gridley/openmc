@@ -30,7 +30,6 @@ option(profile  "Compile with profiling flags"                   OFF)
 option(debug    "Compile with debug flags"                       OFF)
 option(optimize "Turn on all compiler optimization flags"        OFF)
 option(coverage "Compile with coverage analysis flags"           OFF)
-option(dagmc    "Enable support for DAGMC (CAD) geometry"        OFF)
 option(libmesh  "Enable support for libMesh unstructured mesh tallies" OFF)
 option(fp32_xs  "Use single precision floats for cross sections"       OFF)
 option(cuda     "Enable support for execution on Nvidia GPUs"    OFF)
@@ -43,17 +42,6 @@ set(MPI_ENABLED FALSE)
 if(${CMAKE_CXX_COMPILER} MATCHES "(mpi[^/]*|CC)$")
   message(STATUS "Detected MPI wrapper: ${CMAKE_CXX_COMPILER}")
   set(MPI_ENABLED TRUE)
-endif()
-
-#===============================================================================
-# DAGMC Geometry Support - need DAGMC/MOAB
-#===============================================================================
-if(dagmc)
-  find_package(DAGMC REQUIRED PATH_SUFFIXES lib/cmake)
-  if (${DAGMC_VERSION} VERSION_LESS 3.2.0)
-    message(FATAL_ERROR "Discovered DAGMC Version: ${DAGMC_VERSION}. \
-    Please update DAGMC to version 3.2.0 or greater.")
-  endif()
 endif()
 
 #===============================================================================
@@ -302,7 +290,6 @@ list(APPEND libopenmc_SOURCES
   src/bank.cpp
   src/boundary_condition.cpp
   src/bremsstrahlung.cpp
-  src/dagmc.cpp
   src/cell.cpp
   src/cmfd_solver.cpp
   src/cross_sections.cpp
@@ -468,11 +455,6 @@ endif()
 # linker flags. Thus, we can pass both linker flags and libraries together.
 target_link_libraries(libopenmc ${ldflags} ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES}
                       pugixml xtensor gsl-lite-v1 fmt::fmt)
-
-if(dagmc)
-  target_compile_definitions(libopenmc PRIVATE DAGMC)
-  target_link_libraries(libopenmc dagmc-shared uwuw-shared)
-endif()
 
 if(libmesh)
   target_compile_definitions(libopenmc PRIVATE LIBMESH)
