@@ -1,12 +1,9 @@
 #pragma once
 
-#include "openmc/constants.h" // MATERIAL_VOID
-#include "openmc/event.h"
 #include "openmc/material.h"
-#include "openmc/memory.h"
 #include "openmc/nuclide.h"
+#include "openmc/thermal.h"
 #include "openmc/particle.h"
-#include "openmc/thermal.h" // ThermalScattering
 
 namespace openmc {
 namespace gpu {
@@ -15,6 +12,7 @@ namespace gpu {
 // meriting the use of constant memory
 // TODO: put these variables where you'd expect them to be, and
 // remove the inclusion of this header where it is no longer necessary.
+
 extern __constant__ unique_ptr<Material>* materials;
 extern __constant__ unique_ptr<Nuclide>* nuclides;
 extern __constant__ unique_ptr<ThermalScattering>* thermal_scatt;
@@ -27,10 +25,6 @@ extern __constant__ bool need_depletion_rx;
 
 extern __managed__ unsigned managed_calculate_fuel_queue_index;
 extern __managed__ unsigned managed_calculate_nonfuel_queue_index;
-
-__global__ void process_calculate_xs_events_device(EventQueueItem* queue);
-
-__global__ void process_calculate_xs_events_device_wmp(EventQueueItem* queue);
 
 } // namespace gpu
 }

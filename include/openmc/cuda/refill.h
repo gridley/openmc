@@ -4,6 +4,7 @@
 #include "openmc/cuda/calculate_xs.h"
 #include "openmc/particle.h"
 #include "openmc/simulation.h" // initialize_history
+#include "openmc/event.h" // EventQueueItem
 
 namespace openmc {
 namespace gpu {

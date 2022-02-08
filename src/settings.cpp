@@ -139,10 +139,12 @@ __constant__ int64_t n_particles;
 __constant__ int32_t gen_per_batch;
 __constant__ TemperatureMethod temperature_method;
 __constant__ bool urr_ptables_on;
+__constant__ bool c_micro_xs_caching;
 
 unsigned thread_block_size {BLOCKSIZE};
 bool cuda_profile {false};
 bool sort_xs_lookup {false};
+bool micro_xs_caching {true};
 } // namespace gpu
 #endif
 
@@ -912,6 +914,9 @@ void read_settings_xml()
   if (check_for_node(root, "sort_xs_lookup")) {
     gpu::sort_xs_lookup = get_node_value_bool(root, "sort_xs_lookup");
   }
+  if (check_for_node(root, "micro_xs_caching")) {
+    gpu::micro_xs_caching = get_node_value_bool(root, "micro_xs_caching");
+  }
 #endif
 
   // Copy necessary settings data to GPU
@@ -950,6 +955,8 @@ void copy_settings_to_gpu()
     sizeof(TemperatureMethod));
   cudaMemcpyToSymbol(
     gpu::urr_ptables_on, &settings::urr_ptables_on, sizeof(bool));
+  cudaMemcpyToSymbol(
+    gpu::c_micro_xs_caching, &gpu::micro_xs_caching, sizeof(bool));
 
   {
     auto tmp = model::external_sources.data();

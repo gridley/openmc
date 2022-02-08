@@ -9,6 +9,7 @@
 #include "openmc/bank.h" // needed to set bank container data in collision kernel
 #include "openmc/cuda/advance.h"
 #include "openmc/cuda/calculate_xs.h"
+#include "openmc/cuda/calculate_xs_kern.h"
 #include "openmc/cuda/collide.h"
 #include "openmc/cuda/cross_surface.h"
 #include "openmc/cuda/death.h"
@@ -135,10 +136,12 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 
 #ifdef __CUDACC__
   if (settings::temperature_multipole) {
-    gpu::process_calculate_xs_events_device_wmp<<<n_blocks, n_threads>>>(
+    constexpr bool use_wmp = true;
+    gpu::process_calculate_xs_events_device_wmp<use_wmp><<<n_blocks, n_threads>>>(
       queue.data()+n_remaining);
   } else {
-    gpu::process_calculate_xs_events_device<<<n_blocks, n_threads>>>(
+    constexpr bool use_wmp = false;
+    gpu::process_calculate_xs_events_device_wmp<use_wmp><<<n_blocks, n_threads>>>(
       queue.data()+n_remaining);
   }
   cudaDeviceSynchronize();
