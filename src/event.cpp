@@ -35,7 +35,7 @@ SharedArray<EventQueueItem> calculate_fuel_xs_queue;
 SharedArray<EventQueueItem> calculate_nonfuel_xs_queue;
 SharedArray<unsigned> advance_particle_queue;
 SharedArray<unsigned> surface_crossing_queue;
-SharedArray<unsigned> collision_queue;
+SharedArray<EventQueueItem> collision_queue;
 SharedArray<unsigned> dead_particle_indices;
 
 vector<Particle> particles;
@@ -137,12 +137,20 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 #ifdef __CUDACC__
   if (settings::temperature_multipole) {
     constexpr bool use_wmp = true;
-    gpu::process_calculate_xs_events_device_wmp<use_wmp><<<n_blocks, n_threads>>>(
-      queue.data()+n_remaining);
+    if (gpu::micro_xs_caching)
+      gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
+        queue.data()+n_remaining);
+    else
+      gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
+        queue.data()+n_remaining);
   } else {
     constexpr bool use_wmp = false;
-    gpu::process_calculate_xs_events_device_wmp<use_wmp><<<n_blocks, n_threads>>>(
-      queue.data()+n_remaining);
+    if (gpu::micro_xs_caching)
+      gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
+        queue.data()+n_remaining);
+    else
+      gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
+        queue.data()+n_remaining);
   }
   cudaDeviceSynchronize();
   catchCudaErrors("process_calculate_xs_events_device");
@@ -238,6 +246,38 @@ void process_collision_events()
     gpu::fission_bank_capacity, &fission_bank_capacity, sizeof(unsigned));
   gpu::fission_bank_index = simulation::fission_bank.size();
 
+  auto n_blocks = simulation::collision_queue.size() / gpu::thread_block_size;
+  // Number of particles to run is less than thread block size
+  const auto n_threads = n_blocks == 0 ? simulation::collision_queue.size() :
+    gpu::thread_block_size;
+  if (n_blocks == 0) {
+    n_blocks = 1;
+  }
+  const unsigned n_remaining = simulation::collision_queue.size() - n_threads * n_blocks;
+
+  // Sorting by material and energy helps XS lookup and keeps fuel/nonfuel separate
+  thrust::sort(thrust::device, simulation::collision_queue.begin(),
+      simulation::collision_queue.end());
+  cudaDeviceSynchronize();
+
+  // Now we need the collision nuclide to be calculated, which requires
+  // an additional loop over XS when we known the macro XS
+  if (!gpu::micro_xs_caching) {
+    constexpr bool for_col = true;
+    constexpr bool micro_xs_caching = false;
+    if (settings::temperature_multipole) {
+      constexpr bool use_wmp = true;
+      gpu::process_calculate_xs_events_device_wmp<use_wmp, micro_xs_caching, for_col><<<n_blocks, n_threads>>>(
+        simulation::collision_queue.data()+n_remaining);
+    } else {
+      constexpr bool use_wmp = false;
+      gpu::process_calculate_xs_events_device_wmp<use_wmp, micro_xs_caching, for_col><<<n_blocks, n_threads>>>(
+        simulation::collision_queue.data()+n_remaining);
+    }
+  }
+  cudaDeviceSynchronize();
+  catchCudaErrors("pre_collision_xs_event");
+
   // Set initial positions of the XS calculation queues for appending
   // while running on GPU
   gpu::managed_calculate_nonfuel_queue_index =
@@ -245,10 +285,7 @@ void process_collision_events()
   gpu::managed_calculate_fuel_queue_index =
     simulation::calculate_fuel_xs_queue.size();
 
-  gpu::process_collision_events_device<<<
-    simulation::collision_queue.size() / gpu::thread_block_size + 1,
-    gpu::thread_block_size>>>(simulation::collision_queue.data(),
-    simulation::collision_queue.size(),
+  gpu::process_collision_events_device<<<n_blocks, n_threads>>>(simulation::collision_queue.data()+n_remaining,
     simulation::calculate_nonfuel_xs_queue.data(),
     simulation::calculate_fuel_xs_queue.data());
   cudaDeviceSynchronize();
@@ -260,7 +297,7 @@ void process_collision_events()
   simulation::calculate_fuel_xs_queue.updateIndex(
     gpu::managed_calculate_fuel_queue_index);
 
-  simulation::collision_queue.resize(0);
+  simulation::collision_queue.resize(n_remaining);
 
 #endif
 }

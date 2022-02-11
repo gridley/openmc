@@ -274,35 +274,74 @@ __device__ inline thrust::complex<double> zpf8h_faddeeva(thrust::complex<double>
     (num_im * den_re - num_re * den_im) / modulus};
 }
 
+// This class is a NuclideMicroXS (basically) when we want to use the
+// UseMicroCache=true option below, and otherwise contains nothing
+template<bool UseMicroCache>
+struct NuclideMicroXSDummy {};
+
+// Full micro cache on the stack
+template<>
+struct NuclideMicroXSDummy<true> : NuclideMicroXS {};
+
+// Reduced data micro data on the stack (not written
+// back to global memory ever)
+template<>
+struct NuclideMicroXSDummy<false> {
+  int index_sab {-1};
+  int index_grid {-1};
+  double sab_frac {0.0};
+  double total {0.0};
+  double elastic {0.0};
+  double absorption {0.0};
+  double fission {0.0};
+  double nu_fission {0.0};
+  double interp_factor {0.0};
+};
+
 // It makes the pointwise code _slightly_ faster to known whether WMP
 // will not be used in advance. Probably some register optimizations being
 // done by the CUDA compiler.
-template <bool UseWMP>
+//
+// ForCollision -- runs right before a collision and caches all micro XS,
+// in cache-free mode.
+template <bool UseWMP, bool UseMicroCache, bool ForCollision = false>
 __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_wmp(
   EventQueueItem* __restrict__ queue)
 {
   using EmissionMode = ReactionProduct::EmissionMode;
-
-  unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
-  Particle p(queue[tid].idx);
-  auto const E = __ldg(&queue[tid].E);
-  auto const mat_idx = __ldg(&queue[tid].material);
+  const unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
+  const unsigned idx = queue[tid].idx;
+  const double E = __ldg(&queue[tid].E); // is ldg actually doing much for us here?
+  const int mat_idx = __ldg(&queue[tid].material);
+  double cutoff; // used only for pre-collision. Compiler will eliminate otherwise
+  double prob; // ^^^^^
+  Particle p(idx);
 
   // Store pre-collision particle properties
-  p.wgt_last() = p.wgt();
-  p.E_last() = E;
-  p.u_last() = p.u();
-  p.r_last() = p.r();
+  // TODO potentially remove this stuff???
+  // In fact, do we even need this at all for the purposes of what I hope to achieve?
+  if constexpr (!ForCollision) {
+    p.wgt_last() = p.wgt();
+    p.E_last() = E;
+    p.u_last() = p.u();
+    p.r_last() = p.r();
 
-  // Reset event variables
-  p.event() = TallyEvent::KILL;
-  p.event_nuclide() = NUCLIDE_NONE;
-  p.event_mt() = REACTION_NONE;
+    // Reset event variables
+    p.event() = TallyEvent::KILL;
+    p.event_nuclide() = NUCLIDE_NONE;
+    p.event_mt() = REACTION_NONE;
 
-  p.macro_xs().total = 0.0;
-  p.macro_xs().neutron.absorption = 0.0;
-  p.macro_xs().neutron.fission = 0.0;
-  p.macro_xs().neutron.nu_fission = 0.0;
+    // TODO potentially put this on teh stack (also advantageous
+    // for implementation of cache-free collisions)
+    p.macro_xs().total = 0.0;
+    p.macro_xs().neutron.absorption = 0.0;
+    p.macro_xs().neutron.fission = 0.0;
+    p.macro_xs().neutron.nu_fission = 0.0;
+  } else {
+    cutoff = prn(p.current_seed()) * p.macro_xs().total;
+    prob = 0.0;
+  }
+
 
   Material const& m = *materials[mat_idx];
 
@@ -322,8 +361,14 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
 
     auto const& i_nuclide =
       m.nuclide_[i]; // TODO test if making not a reference better
-    auto* __restrict__ micro_ref {&p.neutron_xs(i_nuclide)};
-    NuclideMicroXS micro;
+
+    NuclideMicroXS* __restrict__ micro_ref {nullptr};
+    NuclideMicroXSDummy<UseMicroCache> micro;
+    // How to have conditionally present stack variable????
+    // Probably a templated type. Nothing if false, NuclideMicroXS if true
+    if constexpr (UseMicroCache) {
+      micro_ref = &p.neutron_xs(i_nuclide);
+    }
 
     micro.index_sab = C_NONE;
     micro.sab_frac = 0.0;
@@ -342,17 +387,22 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
     }
 
     NuclideMicroXS* __restrict__ use_micro = micro_ref;
-    if (E != micro_ref->last_E || p.sqrtkT() != micro_ref->last_sqrtkT ||
+    // Compiler should short-circuit evaluate UseMicroCache at compile time
+    if (!UseMicroCache || (E != micro_ref->last_E || p.sqrtkT() != micro_ref->last_sqrtkT ||
         micro.index_sab != micro_ref->index_sab ||
-        micro.sab_frac != micro_ref->sab_frac) {
-      use_micro = &micro; // ummm
+        micro.sab_frac != micro_ref->sab_frac)) {
+
       auto const& nuclide = *nuclides[i_nuclide];
-      micro.elastic = CACHE_INVALID;
-      micro.thermal = 0.0;
-      micro.thermal_elastic = 0.0;
-      micro.use_ptable = false;
-      micro.last_E = E;
-      micro.last_sqrtkT = p.sqrtkT();
+
+      if constexpr (UseMicroCache) {
+        use_micro = &micro; // ummm
+        micro.elastic = CACHE_INVALID;
+        micro.thermal = 0.0;
+        micro.thermal_elastic = 0.0;
+        micro.use_ptable = false;
+        micro.last_E = E;
+        micro.last_sqrtkT = p.sqrtkT();
+      }
 
       if constexpr (UseWMP) {
         if (nuclide.multipole_ && (E >= nuclide.multipole_->E_min_ && E <= nuclide.multipole_->E_max_)) {
@@ -481,8 +531,7 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
         // Find the appropriate temperature index. why would someone use
         // nearest?
         xsfloat kT = p.sqrtkT() * p.sqrtkT();
-        xsfloat f;
-        int i_temp;
+        int index_temp;
 
         switch (gpu::temperature_method) {
         case TemperatureMethod::NEAREST: {
@@ -490,7 +539,7 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
           for (int t = 0; t < nuclide.kTs_.size(); ++t) {
             double diff = std::abs(nuclide.kTs_[t] - kT);
             if (diff < max_diff) {
-              i_temp = t;
+              index_temp = t;
               max_diff = diff;
             }
           }
@@ -498,92 +547,103 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
 
         case TemperatureMethod::INTERPOLATION:
           // Find temperatures that bound the actual temperature
-          for (i_temp = 0; i_temp < nuclide.kTs_.size() - 1; ++i_temp) {
-            if (nuclide.kTs_[i_temp] <= kT && kT < nuclide.kTs_[i_temp + 1])
+          for (index_temp = 0; index_temp < nuclide.kTs_.size() - 1; ++index_temp) {
+            if (nuclide.kTs_[index_temp] <= kT && kT < nuclide.kTs_[index_temp + 1])
               break;
           }
 
           // Randomly sample between temperature i and i+1
-          f = (kT - nuclide.kTs_[i_temp]) /
-              (nuclide.kTs_[i_temp + 1] - nuclide.kTs_[i_temp]);
-          if (f > prn(p.current_seed()))
-            ++i_temp;
+          micro.interp_factor = (kT - nuclide.kTs_[index_temp]) /
+              (nuclide.kTs_[index_temp + 1] - nuclide.kTs_[index_temp]);
+          if (micro.interp_factor > prn(p.current_seed()))
+            ++index_temp;
           break;
         }
 
-        const auto& grid {nuclide.grid_[i_temp]};
+        const auto& grid {nuclide.grid_[index_temp]};
         // Determine bounding indices based on which equal log-spaced
         // interval the energy is in
         int i_low = __ldg(&grid.grid_index[i_log_union]);
         int i_high = __ldg(&grid.grid_index[i_log_union + 1]) + 1;
 
         // Perform binary search over reduced range
-        int i_grid = i_low + lower_bound_index_linear(
+        micro.index_grid = i_low + lower_bound_index_linear(
                                &grid.energy[i_low], &grid.energy[i_high], E);
-        const auto xs_left {nuclide.xs_[i_temp][i_grid]};
-        const auto xs_right {nuclide.xs_[i_temp][i_grid + 1]};
+        const auto xs_left {nuclide.xs_[index_temp][micro.index_grid]};
+        const auto xs_right {nuclide.xs_[index_temp][micro.index_grid + 1]};
         // check for rare case where two energy points are the same
-        if (grid.energy[i_grid] == grid.energy[i_grid + 1])
-          ++i_grid;
+        if (grid.energy[micro.index_grid] == grid.energy[micro.index_grid + 1])
+          ++micro.index_grid;
 
         // calculate interpolation factor
-        f = (E - grid.energy[i_grid]) /
-            (grid.energy[i_grid + 1] - grid.energy[i_grid]);
-
-        micro.index_temp = i_temp;
-        micro.index_grid = i_grid;
-        micro.interp_factor = f;
+        micro.interp_factor = (E - grid.energy[micro.index_grid]) /
+            (grid.energy[micro.index_grid + 1] - grid.energy[micro.index_grid]);
 
         // Calculate all microscopic cross sections
-        micro.total = (1.0 - f) * xs_left.total + f * xs_right.total;
+        micro.total = (1.0 - micro.interp_factor) * xs_left.total + micro.interp_factor * xs_right.total;
         micro.absorption =
-          (1.0 - f) * xs_left.absorption + f * xs_right.absorption;
+          (1.0 - micro.interp_factor) * xs_left.absorption + micro.interp_factor * xs_right.absorption;
 
         if (nuclide.fissionable_) {
           // Calculate microscopic nuclide total cross section
-          micro.fission = (1.0 - f) * xs_left.fission + f * xs_right.fission;
+          micro.fission = (1.0 - micro.interp_factor) * xs_left.fission + micro.interp_factor * xs_right.fission;
 
           // Calculate microscopic nuclide nu-fission cross section
           micro.nu_fission =
-            (1.0 - f) * xs_left.nu_fission + f * xs_right.nu_fission;
+            (1.0 - micro.interp_factor) * xs_left.nu_fission + micro.interp_factor * xs_right.nu_fission;
         } else {
           micro.fission = 0.0;
           micro.nu_fission = 0.0;
         }
 
         // Calculate microscopic nuclide photon production cross section
-        micro.photon_prod =
-          (1.0 - f) * xs_left.photon_production + f * xs_right.photon_production;
+        if constexpr (UseMicroCache) {
+          micro.photon_prod =
+            (1.0 - micro.interp_factor) * xs_left.photon_production + micro.interp_factor * xs_right.photon_production;
+        }
 
         // Additionally calculate S(a, b) cross section data
+        xsfloat thermal = 0.0;
         if (micro.index_sab >= 0) {
           int i_temp;
           xsfloat inelastic;
           xsfloat elastic;
-          gpu::thermal_scatt[micro.index_sab]->calculate_xs(E, micro.last_sqrtkT,
+          // TODO cache sqrtkT earlier on the stack? Used to use micro.last_sqrtkT here.
+          gpu::thermal_scatt[micro.index_sab]->calculate_xs(E, p.sqrtkT(),
             &i_temp, &elastic, &inelastic, p.current_seed());
-          micro.thermal = micro.sab_frac * (elastic + inelastic);
-          micro.thermal_elastic = micro.sab_frac * elastic;
+          thermal = micro.sab_frac * (elastic + inelastic);
+          if constexpr (UseMicroCache) {
+            micro.thermal = thermal;
+            micro.thermal_elastic = micro.sab_frac * elastic;
+          }
 
           // calculate_elastic_xs
-          if (micro.index_temp >= 0) {
-            const auto& xs = nuclide.reactions_[0]->xs_[micro.index_temp].value;
+          if (index_temp >= 0) {
+            const auto& xs = nuclide.reactions_[0]->xs_[index_temp].value;
             micro.elastic = (1.0 - micro.interp_factor) * xs[micro.index_grid] +
                             micro.interp_factor * xs[micro.index_grid + 1];
           }
 
           micro.total =
-            micro.total + micro.thermal - micro.sab_frac * micro.elastic;
-          micro.elastic = micro.thermal + (1.0 - micro.sab_frac) * micro.elastic;
-          micro.index_temp_sab = i_temp;
+            micro.total + thermal - micro.sab_frac * micro.elastic;
+          micro.elastic = thermal + (1.0 - micro.sab_frac) * micro.elastic;
+          if constexpr (UseMicroCache) {
+            micro.index_temp_sab = i_temp;
+          }
+        }
+        if constexpr (UseMicroCache) {
+          micro.index_temp = index_temp;
         }
 
         // Calculate URR cross sections if needed
         if (gpu::urr_ptables_on && nuclide.urr_present_) {
-          if (nuclide.urr_data_[i_temp].energy_in_bounds(E)) {
-            micro.use_ptable = true;
+          if (nuclide.urr_data_[index_temp].energy_in_bounds(E)) {
+
+            if constexpr (UseMicroCache)
+              micro.use_ptable = true;
+
             // TODO check storing by value
-            const auto& urr = nuclide.urr_data_[i_temp];
+            const auto& urr = nuclide.urr_data_[index_temp];
 
             int i_energy = 0;
             while (E >= urr.energy_[i_energy + 1]) {
@@ -666,18 +726,18 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
 
               // Determine inelastic scattering cross section
               Reaction* rx = nuclide.reactions_[nuclide.urr_inelastic_].get();
-              int xs_index = micro.index_grid - rx->xs_[i_temp].threshold;
+              int xs_index = micro.index_grid - rx->xs_[index_temp].threshold;
               if (xs_index >= 0) {
-                inelastic = (1. - f) * rx->xs_[i_temp].value[xs_index] +
-                            f * rx->xs_[i_temp].value[xs_index + 1];
+                inelastic = (1. - f) * rx->xs_[index_temp].value[xs_index] +
+                            f * rx->xs_[index_temp].value[xs_index + 1];
               }
             }
 
             // Multiply by smooth cross-section if needed
             if (urr.multiply_smooth_) {
-              const auto& xs = nuclide.reactions_[0]->xs_[i_temp].value;
+              const auto& xs = nuclide.reactions_[0]->xs_[index_temp].value;
               f = micro.interp_factor;
-              micro.elastic = (1.0 - f) * xs[i_grid] + f * xs[i_grid + 1];
+              micro.elastic = (1.0 - f) * xs[micro.index_grid] + f * xs[micro.index_grid + 1];
               elastic *= micro.elastic;
               capture *= (micro.absorption - micro.fission);
               fission *= micro.fission;
@@ -717,13 +777,23 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
     }
 
     double const& atom_density = m.atom_density_[i];
-    p.macro_xs().total += atom_density * use_micro->total;
-    p.macro_xs().neutron.absorption += atom_density * use_micro->absorption;
-    p.macro_xs().neutron.fission += atom_density * use_micro->fission;
-    p.macro_xs().neutron.nu_fission += atom_density * use_micro->nu_fission;
-    if (use_micro != micro_ref) {
-      *micro_ref = micro; // save stack variable back to global memory
+    if (!ForCollision) {
+      p.macro_xs().total += atom_density * use_micro->total;
+      p.macro_xs().neutron.absorption += atom_density * use_micro->absorption;
+      p.macro_xs().neutron.fission += atom_density * use_micro->fission;
+      p.macro_xs().neutron.nu_fission += atom_density * use_micro->nu_fission;
+      if constexpr (UseMicroCache) {
+        if (use_micro != micro_ref) {
+          *micro_ref = micro; // save stack variable back to global memory
+        }
+      }
+    } else { // ForCollision
+      prob += atom_density * use_micro->total;
+      if (prob >= cutoff) p.event_nuclide() = i_nuclide;
+      // return; // TODO Hmmmm maybe??
+      cutoff = 1e6; // prevent any more updates
     }
+
   }
 }
 

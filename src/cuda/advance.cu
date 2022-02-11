@@ -8,7 +8,7 @@ __managed__ unsigned managed_collision_queue_index;
 
 __global__ void process_advance_events_device(
   unsigned* __restrict__ queue, unsigned* __restrict__ surface_crossing_queue,
-  unsigned* __restrict__ collision_queue)
+  EventQueueItem* __restrict__ collision_queue)
 {
   const unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   const auto p_idx = queue[tid];
@@ -40,7 +40,7 @@ __global__ void process_advance_events_device(
       &managed_surface_crossing_queue_index)] = p_idx;
   } else {
     // to collision queue
-    collision_queue[atomicAggInc(&managed_collision_queue_index)] = p_idx;
+    collision_queue[atomicAggInc(&managed_collision_queue_index)] = {p, p_idx};
   }
 
 }

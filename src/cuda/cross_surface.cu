@@ -16,6 +16,7 @@ __global__ void process_surface_crossing_events_device(
   if (tid < queue_size) {
     p.event_cross_surface();
 
+    // TODO TODO TODO TODO why not revive from secondaries here???
     // Replace with revival from secondaries eventually
     p.n_event()++;
 

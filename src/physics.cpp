@@ -100,21 +100,31 @@ void collision(Particle& p)
 
 HD void sample_neutron_reaction(Particle& p)
 {
+  bool micro_caching;
 #ifdef __CUDA_ARCH__
   using gpu::nuclides;
   using gpu::number_nuclides;
   using gpu::survival_biasing;
+  micro_caching = gpu::c_micro_xs_caching; // constant memory
 #else
   using data::nuclides;
   using settings::survival_biasing;
   unsigned number_nuclides = data::nuclides.size();
+  micro_caching = true;
 #endif
 
   // Sample a nuclide within the material
-  int i_nuclide = sample_nuclide(p);
+  int i_nuclide;
+  if (micro_caching) {
+    // Save which nuclide particle had collision with
+    i_nuclide = sample_nuclide(p);
+    p.event_nuclide() = i_nuclide;
+  } else {
+    // If we are not caching micros, the kernel call just before
+    // this one was responsible for setting event_nuclide().
+    i_nuclide = p.event_nuclide();
+  }
 
-  // Save which nuclide particle had collision with
-  p.event_nuclide() = i_nuclide;
 
   // Create fission bank sites. Note that while a fission reaction is sampled,
   // it never actually "happens", i.e. the weight of the particle does not

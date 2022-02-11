@@ -53,7 +53,12 @@ struct EventQueueItem{
   //   return std::tie(type, material, E) < std::tie(rhs.type, rhs.material,
   //   rhs.E);
   // }
-  bool operator<(const EventQueueItem& rhs) const { return E < rhs.E; }
+  bool operator<(const EventQueueItem& rhs) const
+  {
+    return std::tie(material, E) < std::tie(rhs.material,
+    rhs.E);
+  }
+  // bool operator<(const EventQueueItem& rhs) const { return E < rhs.E; }
 };
 
 struct EventCounter {
@@ -78,7 +83,7 @@ extern SharedArray<EventQueueItem> calculate_fuel_xs_queue;
 extern SharedArray<EventQueueItem> calculate_nonfuel_xs_queue;
 extern SharedArray<unsigned> advance_particle_queue;
 extern SharedArray<unsigned> surface_crossing_queue;
-extern SharedArray<unsigned> collision_queue;
+extern SharedArray<EventQueueItem> collision_queue;
 extern SharedArray<unsigned> dead_particle_indices;
 
 // Particle buffer
