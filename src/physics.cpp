@@ -781,6 +781,7 @@ HD void scatter(Particle& p, int i_nuclide)
 
     int j = 0;
     int i = 0;
+
     while (prob < cutoff) {
       i = nuc->index_inelastic_scatter_[j];
       ++j;

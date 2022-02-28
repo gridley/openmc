@@ -4,6 +4,7 @@
 #include "openmc/string.h"
 #include <limits> // For numeric_limits
 #include <unordered_map>
+#include <cstring> // memset
 
 #include "hdf5.h"
 #include "pugixml.hpp"

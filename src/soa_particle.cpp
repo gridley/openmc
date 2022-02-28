@@ -29,8 +29,13 @@ void allocate_soa_data()
   }
 
   // Allocate sufficient room in all arrays
-  neutron_xs.resize(data::nuclides.size() * particles_in_flight);
+  if (openmc::gpu::micro_xs_caching)
+    neutron_xs.resize(data::nuclides.size() * particles_in_flight);
+  else
+    neutron_xs.resize(particles_in_flight);
+
   photon_xs.resize(data::elements.size() * particles_in_flight);
+
   macro_xs.resize(particles_in_flight);
   id.resize(particles_in_flight);
   type.resize(particles_in_flight);
@@ -91,7 +96,7 @@ void allocate_soa_data()
   n_progeny.resize(particles_in_flight);
 
   // Cache a few frequently accessed variables.
-  n_nuclides = data::nuclides.size();
+  n_nuclides = openmc::gpu::micro_xs_caching ? data::nuclides.size() : 1;
   n_elements = data::elements.size();
   n_coord_levels = model::n_coord_levels;
   n_tally_derivs = model::tally_derivs.size();

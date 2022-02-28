@@ -192,9 +192,9 @@ public:
   HD NuclideMicroXS& neutron_xs(const int& i)
   {
 #ifdef __CUDA_ARCH__
-    return soa::gpu::neutron_xs[p * soa::gpu::n_nuclides + i];
+    return soa::gpu::neutron_xs[p * soa::gpu::n_nuclides + i*openmc::gpu::c_micro_xs_caching];
 #else
-    return soa::neutron_xs[p * soa::n_nuclides + i];
+    return soa::neutron_xs[p * soa::n_nuclides + i*openmc::gpu::micro_xs_caching];
 #endif
   }
   const NuclideMicroXS& neutron_xs(const int& i) const
@@ -202,9 +202,9 @@ public:
     // TODO experiment with __ldg here and return by value
     // (and elsewhere in this class)
 #ifdef __CUDA_ARCH__
-    return soa::gpu::neutron_xs[p * soa::gpu::n_nuclides + i];
+    return soa::gpu::neutron_xs[p * soa::gpu::n_nuclides + i*openmc::gpu::c_micro_xs_caching];
 #else
-    return soa::neutron_xs[p * soa::n_nuclides + i];
+    return soa::neutron_xs[p * soa::n_nuclides + i*openmc::gpu::micro_xs_caching];
 #endif
   }
   HD ElementMicroXS& photon_xs(const int& i)
@@ -1041,12 +1041,16 @@ public:
   HD void invalidate_neutron_xs()
   {
 #ifdef __CUDA_ARCH__
-    for (int i_nuc = 0; i_nuc < soa::gpu::n_nuclides; ++i_nuc) {
-      soa::gpu::neutron_xs[p * soa::gpu::n_nuclides + i_nuc].last_E = 0.0;
+    if (openmc::gpu::c_micro_xs_caching) {
+      for (int i_nuc = 0; i_nuc < soa::gpu::n_nuclides; ++i_nuc) {
+        soa::gpu::neutron_xs[p * soa::gpu::n_nuclides + i_nuc].last_E = 0.0;
+      }
     }
 #else
-    for (int i_nuc = 0; i_nuc < soa::n_nuclides; ++i_nuc) {
-      soa::neutron_xs[p * soa::n_nuclides + i_nuc].last_E = 0.0;
+    if (openmc::gpu::micro_xs_caching) {
+      for (int i_nuc = 0; i_nuc < soa::n_nuclides; ++i_nuc) {
+        soa::neutron_xs[p * soa::n_nuclides + i_nuc].last_E = 0.0;
+      }
     }
 #endif
   }

@@ -100,7 +100,7 @@ void ReactionProduct::sample(xsfloat E_in, xsfloat& E_out, xsfloat& mu,
       }
     }
   } else {
-    // NOTE: this is an extra indirection step that's avoidable in most cases.
+    // TODO NOTE: this is an extra indirection step that's avoidable in most cases.
     // We could instead directly store the pointer and save a good little bit
     // of time!
 

@@ -87,12 +87,11 @@ void free_event_queues(void)
 
 void process_init_events(unsigned n_particles, unsigned source_offset)
 {
-  if (!gpu::cuda_profile || (overall_generation() > 1))
-    simulation::time_event_init.start();
-
 #ifndef __CUDACC__
   fatal_error("Event mode on CPU not working at the moment!");
 #else
+  if (!gpu::cuda_profile || (overall_generation() > 1))
+    simulation::time_event_init.start();
 
   gpu::managed_calculate_nonfuel_queue_index =
     simulation::calculate_nonfuel_xs_queue.size();
@@ -110,21 +109,15 @@ void process_init_events(unsigned n_particles, unsigned source_offset)
     gpu::managed_calculate_nonfuel_queue_index);
   simulation::calculate_fuel_xs_queue.updateIndex(
     gpu::managed_calculate_fuel_queue_index);
-#endif
 
   if (!gpu::cuda_profile || (overall_generation() > 1))
     simulation::time_event_init.stop();
+#endif
 }
 
 void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 {
-  if (gpu::sort_xs_lookup) {
-    simulation::time_event_sort.start();
-    thrust::sort(thrust::device, queue.begin(), queue.end());
-    cudaDeviceSynchronize();
-    simulation::time_event_sort.stop();
-  }
-
+#ifdef __CUDACC__
   auto n_blocks = queue.size() / gpu::thread_block_size;
   // Number of particles to run is less than thread block size
   const auto n_threads = n_blocks == 0 ? queue.size() :
@@ -134,7 +127,13 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
   }
   const unsigned n_remaining = queue.size() - n_threads * n_blocks;
 
-#ifdef __CUDACC__
+  if (gpu::sort_xs_lookup) {
+    simulation::time_event_sort.start();
+    // thrust::sort(thrust::device, queue.begin()+n_remaining, queue.end());
+    cudaDeviceSynchronize();
+    simulation::time_event_sort.stop();
+  }
+
   if (settings::temperature_multipole) {
     constexpr bool use_wmp = true;
     if (gpu::micro_xs_caching)
@@ -198,9 +197,9 @@ void process_advance_particle_events()
   simulation::surface_crossing_queue.updateIndex(
     gpu::managed_surface_crossing_queue_index);
   simulation::collision_queue.updateIndex(gpu::managed_collision_queue_index);
-#endif
 
   simulation::advance_particle_queue.resize(n_remaining);
+#endif
 }
 
 void process_surface_crossing_events()
@@ -256,9 +255,10 @@ void process_collision_events()
   const unsigned n_remaining = simulation::collision_queue.size() - n_threads * n_blocks;
 
   // Sorting by material and energy helps XS lookup and keeps fuel/nonfuel separate
-  thrust::sort(thrust::device, simulation::collision_queue.begin(),
-      simulation::collision_queue.end());
+  // thrust::sort(thrust::device, simulation::collision_queue.begin(),
+  //     simulation::collision_queue.end());
   cudaDeviceSynchronize();
+  catchCudaErrors("collision thrust sort");
 
   // Now we need the collision nuclide to be calculated, which requires
   // an additional loop over XS when we known the macro XS
