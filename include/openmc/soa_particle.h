@@ -1176,6 +1176,11 @@ public:
 #endif
   }
 
+  __host__ double& collision_distance() {
+    fatal_error("this should never be called in CUDA mode!");
+    return soa::wgt[p];
+  }
+
   // Applies defaults as defined in particle_data.h
   HD void initialize_values()
   {

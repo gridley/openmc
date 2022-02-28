@@ -170,17 +170,16 @@ Particle::event_advance()
   boundary() = distance_to_boundary(*this);
 
   // Sample a distance to collision
-  double collision_distance;
   if (type() == ParticleType::electron || type() == ParticleType::positron) {
-    collision_distance = 0.0;
+    collision_distance() = 0.0;
   } else if (macro_xs().total == 0.0) {
-    collision_distance = INFINITY;
+    collision_distance() = INFINITY;
   } else {
-    collision_distance = -std::log(prn(current_seed())) / macro_xs().total;
+    collision_distance() = -std::log(prn(current_seed())) / macro_xs().total;
   }
 
   // Select smaller of the two distances
-  double distance = std::min(boundary().distance, collision_distance);
+  double distance = std::min(boundary().distance, collision_distance());
 
   // Advance particle
   for (int j = 0; j < n_coord(); ++j) {
