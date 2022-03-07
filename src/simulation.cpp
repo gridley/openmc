@@ -847,7 +847,7 @@ void transport_event_based()
       simulation::collision_queue.size()});
 
     // Execute event with the longest queue
-    if (remaining_work == 0) break;
+    if (remaining_work == 0 && max == 0) break;
 
     if (max == 0) {
       // may need to wait for refill iteration, so do nothing
