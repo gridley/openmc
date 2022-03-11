@@ -53,7 +53,7 @@ struct EventQueueItem{
   //   return std::tie(type, material, E) < std::tie(rhs.type, rhs.material,
   //   rhs.E);
   // }
-  bool operator<(const EventQueueItem& rhs) const
+  HD bool operator<(const EventQueueItem& rhs) const
   {
     return std::tie(material, E) < std::tie(rhs.material,
     rhs.E);

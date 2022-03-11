@@ -812,8 +812,8 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
         onstack.thermal_elastic = micro.thermal_elastic;
         p.neutron_xs(0) = onstack;
         cutoff = 1e6; // prevent any more updates
+        break;
       }
-      // return; // TODO Hmmmm maybe??
     }
 
   }

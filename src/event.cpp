@@ -129,7 +129,7 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 
   if (gpu::sort_xs_lookup) {
     simulation::time_event_sort.start();
-    // thrust::sort(thrust::device, queue.begin()+n_remaining, queue.end());
+    thrust::sort(thrust::device, queue.begin()+n_remaining, queue.end());
     cudaDeviceSynchronize();
     simulation::time_event_sort.stop();
   }
@@ -176,8 +176,10 @@ void process_advance_particle_events()
     simulation::surface_crossing_queue.size();
   gpu::managed_collision_queue_index = simulation::collision_queue.size();
 
+  simulation::time_event_sort.start();
   thrust::sort(thrust::device,
       simulation::advance_particle_queue.begin(), simulation::advance_particle_queue.end());
+  simulation::time_event_sort.stop();
 
   auto n_blocks = simulation::advance_particle_queue.size() / gpu::thread_block_size;
   // Number of particles to run is less than thread block size
@@ -212,9 +214,11 @@ void process_surface_crossing_events()
   gpu::managed_calculate_fuel_queue_index =
     simulation::calculate_fuel_xs_queue.size();
 
+  simulation::time_event_sort.start();
   thrust::sort(thrust::device,
       simulation::surface_crossing_queue.begin(),
       simulation::surface_crossing_queue.end());
+  simulation::time_event_sort.stop();
 
   gpu::process_surface_crossing_events_device<<<
     simulation::surface_crossing_queue.size() / gpu::thread_block_size + 1,
@@ -255,9 +259,11 @@ void process_collision_events()
   const unsigned n_remaining = simulation::collision_queue.size() - n_threads * n_blocks;
 
   // Sorting by material and energy helps XS lookup and keeps fuel/nonfuel separate
-  // thrust::sort(thrust::device, simulation::collision_queue.begin(),
-  //     simulation::collision_queue.end());
+  simulation::time_event_sort.start();
+  thrust::sort(thrust::device, simulation::collision_queue.begin(),
+      simulation::collision_queue.end());
   cudaDeviceSynchronize();
+  simulation::time_event_sort.stop();
   catchCudaErrors("collision thrust sort");
 
   // Now we need the collision nuclide to be calculated, which requires
@@ -277,6 +283,8 @@ void process_collision_events()
   }
   cudaDeviceSynchronize();
   catchCudaErrors("pre_collision_xs_event");
+
+  // TODO sort by collision nuclide now..
 
   // Set initial positions of the XS calculation queues for appending
   // while running on GPU
