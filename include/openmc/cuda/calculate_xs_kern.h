@@ -793,7 +793,7 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
     } else { // ForCollision
       prob += atom_density * micro.total;
       if (prob >= cutoff) {
-        p.event_nuclide() = i_nuclide;
+        p.event_nuclide() = i_nuclide; // TODO can remove this..
         // TODO make this not suck!
         NuclideMicroXS onstack;
         onstack.index_sab = micro.index_sab;
@@ -812,6 +812,7 @@ __global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_
         onstack.thermal_elastic = micro.thermal_elastic;
         p.neutron_xs(0) = onstack;
         cutoff = 1e6; // prevent any more updates
+        queue[tid].material = i_nuclide; // for sorting collision nuclide
         break;
       }
     }

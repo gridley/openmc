@@ -264,7 +264,7 @@ void process_collision_events()
       simulation::collision_queue.end());
   cudaDeviceSynchronize();
   simulation::time_event_sort.stop();
-  catchCudaErrors("collision thrust sort");
+  catchCudaErrors("collision thrust sort pre-nuclide-sample");
 
   // Now we need the collision nuclide to be calculated, which requires
   // an additional loop over XS when we known the macro XS
@@ -284,7 +284,13 @@ void process_collision_events()
   cudaDeviceSynchronize();
   catchCudaErrors("pre_collision_xs_event");
 
-  // TODO sort by collision nuclide now..
+  // sort by collision nuclide now.. (i_nuclide fills in i_material in above)
+  simulation::time_event_sort.start();
+  thrust::sort(thrust::device, simulation::collision_queue.begin(),
+      simulation::collision_queue.end());
+  cudaDeviceSynchronize();
+  simulation::time_event_sort.stop();
+  catchCudaErrors("collision thrust sort post-nuclide-sample");
 
   // Set initial positions of the XS calculation queues for appending
   // while running on GPU
