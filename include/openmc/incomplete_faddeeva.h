@@ -1,6 +1,8 @@
 #ifndef OPENMC_INCOMPLETE_FADDEEVA_H
 #define OPENMC_INCOMPLETE_FADDEEVA_H
 
+#include <complex>
+
 namespace openmc {
 
 /*

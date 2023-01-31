@@ -292,6 +292,7 @@ list(APPEND libopenmc_SOURCES
   src/geometry.cpp
   src/geometry_aux.cpp
   src/hdf5_interface.cpp
+  src/incomplete_faddeeva.cpp
   src/lattice.cpp
   src/material.cpp
   src/math_functions.cpp

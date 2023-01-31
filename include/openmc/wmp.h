@@ -9,6 +9,7 @@
 #include <tuple>
 
 #include "openmc/array.h"
+#include "openmc/position.h"
 #include "openmc/vector.h"
 
 namespace openmc {
@@ -68,6 +69,18 @@ public:
   //!         fission cross sections in [b/K]
   std::tuple<double, double, double> evaluate_deriv(
     double E, double sqrtkT) const;
+
+  //! \brief Samples the target speed using the MARS (multipole analytic
+  //!        resonance upscatter) method. The relative energy would usually
+  //         follow a simple distribution for constant cross section nuclei,
+  //         but resonances bias this distribution substantially leading to
+  //         the so-called resonance upscatter effect.
+  //!
+  //! \param E Incident neutron energy in [eV]
+  //! \param kT Temperature times Boltzmann constant
+  //! \return speed of the target in units of sqrt(eV)
+  double sample_target_relative_speed(
+    const double& E, const double& kT, uint64_t* seed) const;
 
   // Data members
   std::string name_;               //!< Name of nuclide

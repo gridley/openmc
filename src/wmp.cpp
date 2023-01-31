@@ -4,8 +4,10 @@
 #include "openmc/cross_sections.h"
 #include "openmc/error.h" // for writing messages
 #include "openmc/hdf5_interface.h"
+#include "openmc/incomplete_faddeeva.h"
 #include "openmc/math_functions.h"
 #include "openmc/nuclide.h"
+#include "openmc/random_lcg.h"
 
 #include <fmt/core.h>
 
@@ -14,8 +16,55 @@
 
 namespace openmc {
 
+// TODO remove this
+template<class UnaryOperation>
+double bisection_root(double left, double right, UnaryOperation unary_op)
+{
+
+  assert(left < right);
+
+  constexpr double TOLERANCE = 1e-6;
+  constexpr double MAXITER = 100;
+
+  // Check for differing signs
+  double leftvalue = unary_op(left);
+  double rightvalue = unary_op(right);
+
+  // Sometimes it doesn't lie within -4, 4, but
+  // we chop to fit in that range.
+  if (leftvalue < 0.0 == rightvalue < 0.0) {
+    if (rightvalue < 0.0)
+      return 4.0;
+    else
+      return -4.0;
+  }
+
+  for (int i = 0; i < MAXITER; ++i) {
+
+    // double middle = (right * leftvalue - left * rightvalue) / (leftvalue -
+    // rightvalue);
+    double middle = 0.5 * (left + right);
+
+    double middlevalue = unary_op(middle);
+
+    if (leftvalue < 0.0 != middlevalue < 0.0) {
+      // Root in left interval
+      right = middle;
+      rightvalue = middlevalue;
+    } else {
+      // Assume to be in right interval
+      left = middle;
+      leftvalue = middlevalue;
+    }
+
+    if ((right - left) < TOLERANCE)
+      return middle;
+  }
+  return (left + right) * 0.5;
+}
+
 //========================================================================
-// WindowedeMultipole implementation
+// WindowedMultipole implementation
 //========================================================================
 
 WindowedMultipole::WindowedMultipole(hid_t group)
@@ -215,6 +264,143 @@ std::tuple<double, double, double> WindowedMultipole::evaluate_deriv(
   sig_f *= norm;
 
   return std::make_tuple(sig_s, sig_a, sig_f);
+}
+
+double WindowedMultipole::sample_target_relative_speed(
+  const double& E, const double& kT, uint64_t* seed) const
+{
+
+  using namespace std::complex_literals;
+
+  // Define some frequently used variables.
+  const double sqrtE = std::sqrt(E);
+  const double sqrtkT = std::sqrt(kT);
+  const double invE = 1.0 / E;
+  const double beta = sqrt_awr_ / sqrtkT; // eV^{-1/2}
+  const double y = sqrtE * beta;
+
+  // Locate window containing energy
+  int i_window = std::min(window_info_.size() - 1,
+    static_cast<size_t>((sqrtE - std::sqrt(E_min_)) * inv_spacing_));
+  const auto& window {window_info_[i_window]};
+
+  // Sample the effective pole
+  std::complex<double> scat_residue(0.0, 0.0);
+  std::complex<double> scat_pole(0.0, 0.0);
+  int selected_pole = -1;
+  double pole_metric = 0.0;
+  for (int i_pole = window.index_start; i_pole <= window.index_end; ++i_pole) {
+    const std::complex<double> z = data_(i_pole, MP_EA) * beta - y;
+    const double this_pole_metric =
+      std::abs(data_(i_pole, MP_RS) / faddeeva(z));
+    if (this_pole_metric > pole_metric) {
+      selected_pole = i_pole;
+      pole_metric = this_pole_metric;
+      scat_residue = -data_(i_pole, MP_RS);
+      scat_pole = data_(i_pole, MP_EA);
+    }
+  }
+
+  // Calculate location of the trough of the scattering resonance
+  const double a = (1.0i * (scat_residue - std::conj(scat_residue))).real();
+  const double b = (1.0i * (std::conj(scat_residue) * scat_pole -
+                             scat_residue * std::conj(scat_pole)))
+                     .real();
+  const double c = (-(std::conj(scat_pole) + scat_pole)).real();
+  const double d = (scat_pole * std::conj(scat_pole)).real();
+  const double discrim = b * b - a * b * c + a * a * d;
+  double s_opt; // sqrt(E) value at resonance dip
+  if (discrim >= 0.0) {
+    s_opt = (-b + std::sqrt(discrim)) / a;
+  } else {
+    s_opt = sqrtE; // ¯\_(ツ)_/¯
+  }
+
+  // Now calculate the window that the resonance dip lies in.
+  // Getting the polynomial contribution within the dip is essential
+  // to obtaining the correct target speed distribution.
+  int i_window_pole = std::min(window_info_.size() - 1,
+    static_cast<size_t>((s_opt - std::sqrt(E_min_)) * inv_spacing_));
+  const auto& window_pole {window_info_[i_window_pole]};
+
+  // Evaluate the polynomial part of the cross section in the resonance
+  // dip at zero kelvin. While this code is somewhat repeated as in
+  // ::evaluate(...), this also calculates the derivative w.r.t. sqrtE
+  // as it goes, so this has therefore not been consolidated into one
+  // private method.
+  double polynomial_xs = 0.0;
+  double polynomial_xs_slope = 0.0;
+  double temp = 1.0 / (s_opt * s_opt * s_opt);
+  for (int i_poly = 0; i_poly < fit_order_ + 1; ++i_poly) {
+    polynomial_xs_slope +=
+      curvefit_(i_window_pole, i_poly, FIT_S) * temp * (i_poly - 2);
+    temp *= s_opt;
+    polynomial_xs += curvefit_(i_window_pole, i_poly, FIT_S) * temp;
+  }
+
+  // Add in contribution from far away poles which negligibly influence
+  // the scattering cross section:
+  for (int i_pole = window_pole.index_start; i_pole <= window_pole.index_end;
+       ++i_pole) {
+
+    // Avoid duplicate poles. They are legion, and treacherous!
+    if (std::abs(data_(i_pole, MP_EA) - scat_pole) < 1e-6)
+      continue;
+
+    std::complex<double> c_temp =
+      -1.0i / (data_(i_pole, MP_EA) - s_opt) / (s_opt * s_opt);
+    polynomial_xs += (data_(i_pole, MP_RS) * c_temp).real();
+    polynomial_xs_slope +=
+      (data_(i_pole, MP_RS) * c_temp *
+        (1.0 / (data_(i_pole, MP_EA) - s_opt) - 1.0 / s_opt))
+        .real();
+  }
+
+  // Shift and nondimensionalize the linearization.
+  // The nondimensional variable "x" is centered on sqrtE.
+  polynomial_xs += polynomial_xs_slope * (sqrtE - s_opt);
+  polynomial_xs_slope /= beta;
+
+  // This is the nondimensional pole passed to the incomplete Faddeeva function
+  const std::complex<double> z = scat_pole * beta - y;
+  const auto wz = faddeeva(z); // cache w(z)
+
+  // Normalizing factor on pole
+  const double pole_term = (scat_residue * PI * beta * wz).real();
+  const double potential_term =
+    0.5 * polynomial_xs * SQRT_PI * (1.0 + 2.0 * y * y) / (beta * beta);
+  const double linear_term = polynomial_xs_slope * SQRT_PI * y / (beta * beta);
+  const double C =
+    pole_term + potential_term + linear_term; // overall normalizing constant
+
+  // Print out the CDF for checking
+  // for (double x=-4.0; x<4.0; x+= 0.001) {
+  //   double t1 = (scat_residue * PI * beta * incomplete_faddeeva(z,
+  //   x)).real(); double t2 = 0.25 /(beta*beta) * polynomial_xs * (-2.0 *
+  //   std::exp(-x*x)*(x+2.0*y)+SQRT_PI*(1.0+2.0*y*y)*(1.0+std::erf(x))); double
+  //   t3 = 0.5 /(beta*beta) * polynomial_xs_slope *
+  //   (-std::exp(-x*x)*(1.0+std::pow(x+y, 2))+SQRT_PI*y*(1.0+std::erf(x)));
+  //   std::cout << x << "    " << (t1+t2+t3)/C << std::endl;
+  // }
+  // exit(0);
+
+  // Find the nondimensional velocity with inverse CDF sampling. TODO
+  // experiment with a more efficient root finding method.
+  const double xi = prn(seed);
+  auto cdf = [=](double x) {
+    return ((scat_residue * PI * beta * incomplete_faddeeva(z, x)).real() +
+             0.25 / (beta * beta) * polynomial_xs *
+               (-2.0 * std::exp(-x * x) * (x + 2.0 * y) +
+                 SQRT_PI * (1.0 + 2.0 * y * y) * (1.0 + std::erf(x))) +
+             0.5 / (beta * beta) * polynomial_xs_slope *
+               (-std::exp(-x * x) * (1.0 + std::pow(x + y, 2)) +
+                 SQRT_PI * y * (1.0 + std::erf(x)))) /
+           C;
+  };
+  auto shifted_cdf = [xi, cdf](double x) { return cdf(x) - xi; };
+  const double x_sample = bisection_root(-4.0, 4.0, shifted_cdf);
+
+  return x_sample / beta + sqrtE;
 }
 
 //========================================================================

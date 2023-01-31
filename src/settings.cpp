@@ -738,6 +738,8 @@ void read_settings_xml()
         res_scat_method = ResScatMethod::rvs;
       } else if (temp == "dbrc") {
         res_scat_method = ResScatMethod::dbrc;
+      } else if (temp == "mars") {
+        res_scat_method = ResScatMethod::mars;
       } else {
         fatal_error(
           "Unrecognized resonance elastic scattering method: " + temp + ".");

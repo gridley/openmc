@@ -977,6 +977,25 @@ Direction sample_target_velocity(const Nuclide& nuc, double E, Direction u,
       }
     }
   } // case RVS, DBRC
+  case ResScatMethod::mars:
+    if (!nuc.multipole_) {
+      fatal_error("No multipole data found for nuclide but MARS selected.");
+    }
+    const double v_rel =
+      nuc.multipole_->sample_target_relative_speed(E, kT, seed);
+    const double neutron_speed = std::sqrt(E);
+    const double vmin = std::abs(v_rel - neutron_speed);
+    const double vmax = v_rel + neutron_speed;
+    const double beta = std::sqrt(nuc.awr_ / kT);
+    const double cmin = 1.0 - std::exp(-std::pow(beta * vmin, 2));
+    const double cmax = 1.0 - std::exp(-std::pow(beta * vmax, 2));
+    const double xi = cmin + prn(seed) * (cmax - cmin);
+    const double tgt_speed = std::sqrt(-std::log(1.0 - xi)) / beta;
+    const double mu = (std::pow(tgt_speed, 2) + std::pow(neutron_speed, 2) -
+                        std::pow(v_rel, 2)) /
+                      (2.0 * neutron_speed * tgt_speed);
+    return tgt_speed * rotate_angle(u, mu, nullptr, seed);
+
   } // switch (sampling_method)
 
   UNREACHABLE();
