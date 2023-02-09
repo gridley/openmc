@@ -366,6 +366,9 @@ list(APPEND libopenmc_SOURCES
   src/xml_interface.cpp
   src/xsdata.cpp)
 
+# Set compile flags for individual files.
+set_property(SOURCE src/incomplete_faddeeva.cpp APPEND PROPERTY COMPILE_FLAGS -ffast-math)
+
 # Add bundled external dependencies
 list(APPEND libopenmc_SOURCES
   src/external/quartic_solver.cpp)

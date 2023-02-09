@@ -106,12 +106,10 @@ double expnexp(int n, double x)
         t = 1.0;
     } while (t > MACHEP);
     k = xk;
-    t = n;
-    r = n - 1;
 
     // Note: this pow call could be an integer power instead,
     // same for the factorial here.
-    ans = (pow(z, r) * psi / std::tgamma(t)) - ans;
+    ans = (pow(z, n - 1) * psi / std::tgamma(n)) - ans;
     ans *= std::exp(x);
   }
 
@@ -257,19 +255,20 @@ std::pair<double, double> r_integral(double m, double z)
  *             ⌡
  *           Re(z)
  */
-std::complex<double> jump_integral(std::complex<double> z, double x)
+std::complex<double> jump_integral(
+  IncompleteFaddeevaCache const& cache, double x)
 {
 
   std::complex<double> result(0.0, 0.0);
-  const double m = x - z.real();
+  const double m = x - cache.z.real();
 
-  if (std::abs(z.real()) < 5.0) {
-    const std::complex<double> beta_arg(0.0, z.imag()/m);
+  if (std::abs(cache.z.real()) < 5.0) {
+    const std::complex<double> beta_arg(0.0, cache.z.imag() / m);
     std::complex<double> b1 = -std::log(1.0 - beta_arg);
 
     // Two term recurrence for exponential term derivatives
     double a0 = 1.0;
-    double a1 = 2.0 * z.real();
+    double a1 = 2.0 * cache.z.real();
 
     result += b1 * a0;
     std::complex<double> bpow = beta_arg;
@@ -284,7 +283,7 @@ std::complex<double> jump_integral(std::complex<double> z, double x)
     double factorial = 1.0;
     double mpow = m;
     for (double a=2.0; a<10.0; ++a) {
-      double newcoe = 2.0 * z.real() * a1 + 2.0 * (a-1.0) * a0;
+      double newcoe = 2.0 * cache.z.real() * a1 + 2.0 * (a - 1.0) * a0;
       a0 = a1;
       a1 = newcoe;
       factorial *= a;
@@ -296,8 +295,8 @@ std::complex<double> jump_integral(std::complex<double> z, double x)
   } else { // handle asymptotic case
 
     // Aliases to shorten the math expression
-    const double& zr = z.real();
-    const double& zi = z.imag();
+    const double& zr = cache.z.real();
+    const double& zi = cache.z.imag();
     constexpr std::complex<double> ii(0.0, 1.0);
     const double m2 = m*m;
 
@@ -316,8 +315,10 @@ std::complex<double> jump_integral(std::complex<double> z, double x)
     const double pp2 = (-6.0 + m2*(-6.0 - 3.0*m2) + zr*(m*(3.0 + 3.0*m2) + zr*(m2*(-2.0 -
               2.0*m2) + zr*(2.0*m2*m - 4.0*m2*m2*zr))))/(m2*m2*m);
 
-    result = (pp2 + pp1/(std::exp(zi*(zi - 2.0*ii*zr))*
-        std::pow(m - ii*zi, 5)))/(8.*std::pow(zr, 5));
+    // Note:std::exp(zi*(zi - 2.0*ii*zr)) = exp(-z^2) / exp(-zr^2)
+    result =
+      (pp2 + pp1 / (cache.emz2 / cache.emrz2 * std::pow(m - ii * zi, 5))) /
+      (8. * std::pow(zr, 5));
   }
   return result;
 }
@@ -339,29 +340,29 @@ double sgn(double val) {
 /*
  * Documented in header file.
  */
-std::complex<double> incomplete_faddeeva(std::complex<double> z, double x)
+std::complex<double> incomplete_faddeeva(
+  IncompleteFaddeevaCache const& cache, double x)
 {
   using namespace std::complex_literals;
 
   // avoids singularity
-  if (x == z.real()) x+=1e-9;
+  if (x == cache.z.real())
+    x += 1e-9;
 
-  const double m = x - z.real();
-  const auto rint = r_integral(m, z.real());
+  const double m = x - cache.z.real();
+  const auto rint = r_integral(m, cache.z.real());
   const double real_part = m * rint.first + 0.5 * rint.second;
 
-  // TODO see if canceling exponenentials can be done to save computing time?
-  std::complex<double> i_integral(real_part,
-      openmc::PI * std::exp(-z.real()*z.real()+x*x) * (0.5 * (std::erf(x) - sgn(m)))
-      );
+  std::complex<double> i_integral(
+    real_part, PI * cache.emrz2 / cache.emx2 * (0.5 * (cache.erfx - sgn(m))));
 
-  const auto ji = jump_integral(z, x);
+  const auto ji = jump_integral(cache, x);
 
   i_integral += ji;
-  i_integral *= std::exp(z.real()*z.real() - z*z);
+  i_integral *= cache.emz2 / cache.emrz2;
 
-  std::complex<double> result = std::exp(-x*x) * i_integral * 1.0i / PI;
-  result += 0.5 * (std::erf(x)+1.0) * faddeeva(z);
+  std::complex<double> result = cache.emx2 * i_integral * 1.0i / PI;
+  result += 0.5 * (cache.erfx + 1.0) * cache.wz;
   return result;
 }
 

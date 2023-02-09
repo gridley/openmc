@@ -363,10 +363,11 @@ double WindowedMultipole::sample_target_relative_speed(
 
   // This is the nondimensional pole passed to the incomplete Faddeeva function
   const std::complex<double> z = scat_pole * beta - y;
-  const auto wz = faddeeva(z); // cache w(z)
+  IncompleteFaddeevaCache cache = {
+    z, faddeeva(z), std::exp(-z * z), std::exp(-z.real() * z.real()), 0.0, 0.0};
 
   // Normalizing factor on pole
-  const double pole_term = (scat_residue * PI * beta * wz).real();
+  const double pole_term = (scat_residue * PI * beta * cache.wz).real();
   const double potential_term =
     0.5 * polynomial_xs * SQRT_PI * (1.0 + 2.0 * y * y) / (beta * beta);
   const double linear_term = polynomial_xs_slope * SQRT_PI * y / (beta * beta);
@@ -375,7 +376,9 @@ double WindowedMultipole::sample_target_relative_speed(
 
   // Print out the CDF for checking
   // for (double x=-4.0; x<4.0; x+= 0.001) {
-  //   double t1 = (scat_residue * PI * beta * incomplete_faddeeva(z,
+  //   cache.emx2 = std::exp(-x * x);
+  //   cache.erfx = std::erf(x);
+  //   double t1 = (scat_residue * PI * beta * incomplete_faddeeva(cache,
   //   x)).real(); double t2 = 0.25 /(beta*beta) * polynomial_xs * (-2.0 *
   //   std::exp(-x*x)*(x+2.0*y)+SQRT_PI*(1.0+2.0*y*y)*(1.0+std::erf(x))); double
   //   t3 = 0.5 /(beta*beta) * polynomial_xs_slope *
@@ -387,17 +390,19 @@ double WindowedMultipole::sample_target_relative_speed(
   // Find the nondimensional velocity with inverse CDF sampling. TODO
   // experiment with a more efficient root finding method.
   const double xi = prn(seed);
-  auto cdf = [=](double x) {
-    return ((scat_residue * PI * beta * incomplete_faddeeva(z, x)).real() +
+  auto cdf = [=](double x) mutable {
+    cache.emx2 = std::exp(-x * x);
+    cache.erfx = std::erf(x);
+    return ((scat_residue * PI * beta * incomplete_faddeeva(cache, x)).real() +
              0.25 / (beta * beta) * polynomial_xs *
-               (-2.0 * std::exp(-x * x) * (x + 2.0 * y) +
-                 SQRT_PI * (1.0 + 2.0 * y * y) * (1.0 + std::erf(x))) +
+               (-2.0 * cache.emx2 * (x + 2.0 * y) +
+                 SQRT_PI * (1.0 + 2.0 * y * y) * (1.0 + cache.erfx)) +
              0.5 / (beta * beta) * polynomial_xs_slope *
-               (-std::exp(-x * x) * (1.0 + std::pow(x + y, 2)) +
-                 SQRT_PI * y * (1.0 + std::erf(x)))) /
+               (-cache.emx2 * (1.0 + std::pow(x + y, 2)) +
+                 SQRT_PI * y * (1.0 + cache.erfx))) /
            C;
   };
-  auto shifted_cdf = [xi, cdf](double x) { return cdf(x) - xi; };
+  auto shifted_cdf = [xi, cdf](double x) mutable { return cdf(x) - xi; };
   const double x_sample = bisection_root(-4.0, 4.0, shifted_cdf);
 
   return x_sample / beta + sqrtE;
