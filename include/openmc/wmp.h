@@ -129,6 +129,11 @@ void read_multipole_data(int i_nuclide);
 extern "C" void broaden_wmp_polynomials(
   double E, double dopp, int n, double factors[]);
 
+// Calculates the E1(z) integral for complex inputs
+// Beware: this is only used as an approximation and is
+// not guaranteed to be accurate.
+std::complex<double> e1z(std::complex<double> z);
+
 } // namespace openmc
 
 #endif // OPENMC_WMP_H

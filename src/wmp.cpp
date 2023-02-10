@@ -16,53 +16,6 @@
 
 namespace openmc {
 
-// TODO remove this
-template<class UnaryOperation>
-double bisection_root(double left, double right, UnaryOperation unary_op)
-{
-
-  assert(left < right);
-
-  constexpr double TOLERANCE = 1e-6;
-  constexpr double MAXITER = 100;
-
-  // Check for differing signs
-  double leftvalue = unary_op(left);
-  double rightvalue = unary_op(right);
-
-  // Sometimes it doesn't lie within -4, 4, but
-  // we chop to fit in that range.
-  if (leftvalue < 0.0 == rightvalue < 0.0) {
-    if (rightvalue < 0.0)
-      return 4.0;
-    else
-      return -4.0;
-  }
-
-  for (int i = 0; i < MAXITER; ++i) {
-
-    // double middle = (right * leftvalue - left * rightvalue) / (leftvalue -
-    // rightvalue);
-    double middle = 0.5 * (left + right);
-
-    double middlevalue = unary_op(middle);
-
-    if (leftvalue < 0.0 != middlevalue < 0.0) {
-      // Root in left interval
-      right = middle;
-      rightvalue = middlevalue;
-    } else {
-      // Assume to be in right interval
-      left = middle;
-      leftvalue = middlevalue;
-    }
-
-    if ((right - left) < TOLERANCE)
-      return middle;
-  }
-  return (left + right) * 0.5;
-}
-
 //========================================================================
 // WindowedMultipole implementation
 //========================================================================
@@ -266,6 +219,71 @@ std::tuple<double, double, double> WindowedMultipole::evaluate_deriv(
   return std::make_tuple(sig_s, sig_a, sig_f);
 }
 
+// Gives a good initial guess to invert the CDF of the relative speed
+// distribution. See the paper for an explanation of how this works.
+double rootfinding_bootstrap_guess(double xi, double apprx_0_cdf, double dcdx, double jump, IncompleteFaddeevaCache const& cache) {
+
+  // TODO replace these with the Jacobian formula for the gap size which avoids 2 erf evals
+  // Note that these values get moved around to simplify some logic down the line.
+  double yjumplo = 0.5 * (std::erf(z.real() - 1.5 * cache.z.imag())+1.0);
+  double yjumphi = 0.5 * (std::erf(z.real() + 1.5 * cache.z.imag())+1.0);
+
+  if (xi <= apprx_0_cdf) {
+
+    if (yjumphi > 0.5 && yjumplo < 0.5) {
+      jump *= (0.5 - yjumplo) / (yjumphi - yjumplo);
+      yjumphi = 0.5;
+    } else if (yjumplo > 0.5) {
+      yjumplo = 0.0;
+      yjumphi = 0.0;
+      jump = 0.0;
+    }
+
+    if (jump > apprx_0_cdf) jump = apprx_0_cdf;
+
+    const auto d = yjumphi - yjumplo;
+    const auto sout = (apprx_0_cdf - jump) / (0.5 - d);
+    const auto sinv = jump > 0.0 ? d / jump : 0.0;
+    if (xi >= sout * yjumplo + jump) {
+      const auto r = sout * yjumplo + jump;
+      const auto a = (r - dcdx * (yjumphi - 0.5) - apprx_0_cdf) / std::pow(yjumphi - 0.5, 2);
+      return 0.5 * (-dcdx + std::sqrt(std::pow(dcdx, 2) - 4.0 * (apprx_0_cdf - xi) * a)) / a + 0.5;
+    } else if (xi > sout * yjumplo) {
+      return (xi - sout * yjumplo) * sinv + yjumplo;
+    } else {
+      if (sout > 0.0) return yy / sout;
+      else return 0.5 * yjumplo;
+    }
+
+  } else { // xi > apprx_0_cdf
+    if (yjumplo < 0.5 && yjumphi > 0.5) {
+      jump *= (yjumphi - 0.5) / (yjumphi - yjumplo);
+      yjumplo = 0.5;
+    } else if (yjumphi < 0.5) {
+      yjumplo = 1.0;
+      yjumphi = 1.0;
+    }
+
+    // Clip innapropriately large jumps
+    if (jump > 1.0 - apprx_0_cdf) jump = 1.0 - apprx_0_cdf;
+    const auto d = yjumphi - yjumplo;
+    const auto sout = (1.0 - jump - apprx_0_cdf) / (0.5 - d);
+    const auto sinv = jump > 0.0 ? d / jump : 0.0;
+    const auto thresh1 = sout * (yjumplo - 0.5) + jump + apprx_0_cdf;
+    const auto thresh2 = sout * (yjumplo - 0.5) + apprx_0_cdf;
+    if (xi >= thresh1) return (yy - thresh1) / sout + yjumphi
+    else if (xi > sout * (yjumplo - 0.5) + apprx_0_cdf)
+      return (yy - thresh2) * sinv + yjumplo;
+    else {
+      const auto a = (thresh2 - dcdx * (yjumplo - 0.5) - apprx_0_cdf)/std::pow(yjumplo - 0.5, 2);
+      return 0.5 * (-dcdx + std::sqrt(std::pow(dcdx, 2) - 4.0 * (apprx_0_cdf - xi) * a)) / a + 0.5
+    }
+  }
+
+  // TODO formally make this UNREACHABLE() but check it out a bit first
+  fatal_error("Should be unreachable???");
+}
+
 double WindowedMultipole::sample_target_relative_speed(
   const double& E, const double& kT, uint64_t* seed) const
 {
@@ -387,9 +405,16 @@ double WindowedMultipole::sample_target_relative_speed(
   // }
   // exit(0);
 
-  // Find the nondimensional velocity with inverse CDF sampling. TODO
-  // experiment with a more efficient root finding method.
+  // TODO Compute approx x=0 CDF and its derivative
+  double apprx_0_cdf = 0.0;
+  double dcdx = 0.0;
+
   const double xi = prn(seed);
+
+  // TODO does this have a factor of sqrt(pi) missing or something?
+  double x = normal_percentile(rootfinding_bootstrap_guess(xi, apprx_0_cdf,
+        dcdx, jump, cache));
+
   auto cdf = [=](double x) mutable {
     cache.emx2 = std::exp(-x * x);
     cache.erfx = std::erf(x);
@@ -499,6 +524,59 @@ void broaden_wmp_polynomials(double E, double dopp, int n, double factors[])
       -factors[i - 1] * (ip1_dbl - 1.) * ip1_dbl * quarter_inv_dopp4 +
       factors[i + 1] * (E + (1. + 2. * ip1_dbl) * half_inv_dopp2);
   }
+}
+
+std::complex<double> e1z(std::complex<double> z) {
+  constexpr double PI=3.141592653589793;
+  constexpr double EL=0.5772156649015328;
+  std::complex<double> ce1(0.0, 0.0);
+  std::complex<double> cr(0.0, 0.0);
+  std::complex<double> z(x, z_i);
+  double a0 = std::abs(z);
+  double xt = -2.0 * std::abs(z_i);
+
+  // Handle "infinite" case
+  // if (a0 == 0.0) {
+  //   *result_r = 1.0e300;
+  //   *result_i = 0.0;
+  //   return;
+  // }
+
+  if (a0 <= 3.0 || x < xt && a0 < 40.0) {
+    // Power series
+    ce1.real(1.0);
+    ce1.imag(0.0);
+    cr.real(1.0);
+    cr.imag(0.0);
+    for (int k=1; k<50; k++) {
+      cr = -cr * static_cast<double>(k) * z / std::pow(k + 1, 2);
+      ce1 += cr;
+      // if (std::abs(cr) < std::abs(ce1) * 1e-15) break;
+    }
+    if (x <= 0.0 && z_i == 0.0) {
+      ce1 = -EL - std::log(-z) + z * ce1 - std::complex<double>(0.0, PI * sgn(z_i));
+    } else {
+      ce1 = -EL - std::log(z) + z * ce1;
+    }
+  } else {
+    // continued fraction
+    auto zd = 1.0 / z;
+    auto zdc = zd;
+    auto zc = zdc;
+    for (int k=1; k<10; k++) {
+      zd = 1.0 / (zd * static_cast<double>(k) + 1.0);
+      zdc = (zd - 1.0) * zdc;
+      zc += zdc;
+      zd = 1.0/(zd * static_cast<double>(k) + z);
+      zdc = (z * zd - 1.0) * zdc;
+      zc += zdc;
+      // if (std::abs(zdc) <= std::abs(zc) * 1e-15 && k >= 20) break;
+    }
+    ce1 = std::exp(-z) * zc;
+    if (x <= 0.0 && z_i == 0.0) ce1 -= std::complex<double>(0.0, PI);
+  }
+  *result_r = ce1.real();
+  *result_i = ce1.imag();
 }
 
 } // namespace openmc
