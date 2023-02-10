@@ -391,6 +391,16 @@ double WindowedMultipole::sample_target_relative_speed(
 
   // This is the nondimensional pole passed to the incomplete Faddeeva function
   const std::complex<double> z = scat_pole * beta - y;
+
+  // From here on out, we seek to solve the equation CDF(x) = xi
+  const double xi = prn(seed);
+
+  // Short circuit if resonance are far away and at sufficiently
+  // high energy. Relative speed distribution reduces to a Gaussian.
+  if (std::abs(z.real()) > 20.0 && y > 150.0) {
+    return normal_percentile(xi) / beta + sqrtE;
+  }
+
   IncompleteFaddeevaCache cache = {
     z, faddeeva(z), std::exp(-z * z), std::exp(-z.real() * z.real()), 0.0, 0.0};
 
@@ -425,9 +435,6 @@ double WindowedMultipole::sample_target_relative_speed(
   // The amount of probability approximately gained at the resonance.
   const double jump = std::max(
     std::min((scat_residue * PI * beta * cache.emrz2).real() / C, 1.0), 0.0);
-
-  // We now solve the equation CDF(x) = xi
-  const double xi = prn(seed);
 
   // Get a good guess at the value of x. For a constant cross section
   // problem at sufficiently high energy, this is exact. It is not

@@ -109,7 +109,7 @@ double expnexp(int n, double x)
 
     // Note: this pow call could be an integer power instead,
     // same for the factorial here.
-    ans = (pow(z, n - 1) * psi / std::tgamma(n)) - ans;
+    ans = (std::pow(z, n - 1) * psi / std::tgamma(n)) - ans;
     ans *= std::exp(x);
   }
 
