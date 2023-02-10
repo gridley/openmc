@@ -225,8 +225,10 @@ double rootfinding_bootstrap_guess(double xi, double apprx_0_cdf, double dcdx, d
 
   // TODO replace these with the Jacobian formula for the gap size which avoids 2 erf evals
   // Note that these values get moved around to simplify some logic down the line.
-  double yjumplo = 0.5 * (std::erf(z.real() - 1.5 * cache.z.imag())+1.0);
-  double yjumphi = 0.5 * (std::erf(z.real() + 1.5 * cache.z.imag())+1.0);
+  double yjumplo =
+    0.5 * (std::erf(cache.z.real() - 1.5 * cache.z.imag()) + 1.0);
+  double yjumphi =
+    0.5 * (std::erf(cache.z.real() + 1.5 * cache.z.imag()) + 1.0);
 
   if (xi <= apprx_0_cdf) {
 
@@ -241,9 +243,10 @@ double rootfinding_bootstrap_guess(double xi, double apprx_0_cdf, double dcdx, d
 
     if (jump > apprx_0_cdf) jump = apprx_0_cdf;
 
-    const auto d = yjumphi - yjumplo;
-    const auto sout = (apprx_0_cdf - jump) / (0.5 - d);
-    const auto sinv = jump > 0.0 ? d / jump : 0.0;
+    const double d = yjumphi - yjumplo;
+    const double sout = (apprx_0_cdf - jump) / (0.5 - d);
+    const double sinv = jump > 0.0 ? d / jump : 0.0;
+
     if (xi >= sout * yjumplo + jump) {
       const auto r = sout * yjumplo + jump;
       const auto a = (r - dcdx * (yjumphi - 0.5) - apprx_0_cdf) / std::pow(yjumphi - 0.5, 2);
@@ -251,7 +254,8 @@ double rootfinding_bootstrap_guess(double xi, double apprx_0_cdf, double dcdx, d
     } else if (xi > sout * yjumplo) {
       return (xi - sout * yjumplo) * sinv + yjumplo;
     } else {
-      if (sout > 0.0) return yy / sout;
+      if (sout > 0.0)
+        return xi / sout;
       else return 0.5 * yjumplo;
     }
 
@@ -262,6 +266,7 @@ double rootfinding_bootstrap_guess(double xi, double apprx_0_cdf, double dcdx, d
     } else if (yjumphi < 0.5) {
       yjumplo = 1.0;
       yjumphi = 1.0;
+      jump = 0.0;
     }
 
     // Clip innapropriately large jumps
@@ -271,12 +276,17 @@ double rootfinding_bootstrap_guess(double xi, double apprx_0_cdf, double dcdx, d
     const auto sinv = jump > 0.0 ? d / jump : 0.0;
     const auto thresh1 = sout * (yjumplo - 0.5) + jump + apprx_0_cdf;
     const auto thresh2 = sout * (yjumplo - 0.5) + apprx_0_cdf;
-    if (xi >= thresh1) return (yy - thresh1) / sout + yjumphi
+    if (xi >= thresh1)
+      return (xi - thresh1) / sout + yjumphi;
     else if (xi > sout * (yjumplo - 0.5) + apprx_0_cdf)
-      return (yy - thresh2) * sinv + yjumplo;
+      return (xi - thresh2) * sinv + yjumplo;
     else {
       const auto a = (thresh2 - dcdx * (yjumplo - 0.5) - apprx_0_cdf)/std::pow(yjumplo - 0.5, 2);
-      return 0.5 * (-dcdx + std::sqrt(std::pow(dcdx, 2) - 4.0 * (apprx_0_cdf - xi) * a)) / a + 0.5
+      return 0.5 *
+               (-dcdx +
+                 std::sqrt(std::pow(dcdx, 2) - 4.0 * (apprx_0_cdf - xi) * a)) /
+               a +
+             0.5;
     }
   }
 
@@ -392,45 +402,85 @@ double WindowedMultipole::sample_target_relative_speed(
   const double C =
     pole_term + potential_term + linear_term; // overall normalizing constant
 
-  // Print out the CDF for checking
-  // for (double x=-4.0; x<4.0; x+= 0.001) {
-  //   cache.emx2 = std::exp(-x * x);
-  //   cache.erfx = std::erf(x);
-  //   double t1 = (scat_residue * PI * beta * incomplete_faddeeva(cache,
-  //   x)).real(); double t2 = 0.25 /(beta*beta) * polynomial_xs * (-2.0 *
-  //   std::exp(-x*x)*(x+2.0*y)+SQRT_PI*(1.0+2.0*y*y)*(1.0+std::erf(x))); double
-  //   t3 = 0.5 /(beta*beta) * polynomial_xs_slope *
-  //   (-std::exp(-x*x)*(1.0+std::pow(x+y, 2))+SQRT_PI*y*(1.0+std::erf(x)));
-  //   std::cout << x << "    " << (t1+t2+t3)/C << std::endl;
-  // }
-  // exit(0);
+  const std::complex<double> e1 = cache.emz2 * e1z_apprx(-z * z);
 
-  // TODO Compute approx x=0 CDF and its derivative
-  double apprx_0_cdf = 0.0;
-  double dcdx = 0.0;
+  // Approximate value of w(z, 0). It has a simplified formula. The only
+  // approximation comes from using a less precise complex E1(z) function;
+  // the rest is exact. This is only used to kickstart the root finder, so
+  // extreme precision is not required.
+  const std::complex<double> apprx_wz0 = (0.5 * cache.wz + 0.5i / PI * e1);
+  const double apprx_0_cdf = ((scat_residue * PI * beta * apprx_wz0).real() +
+                               0.25 / std::pow(beta, 2) * polynomial_xs *
+                                 (-4.0 * y + SQRT_PI * (1.0 + 2.0 * y * y)) +
+                               0.5 / std::pow(beta, 2) * polynomial_xs_slope *
+                                 (-(1.0 + y * y) + SQRT_PI * y)) /
+                             C;
 
+  // Approximate ∂ₓw(z, x) @ x=0
+  const double dcdx =
+    ((scat_residue * PI * beta * (1.0i / PI / cache.z)).real() +
+      std::pow(y, 2) / std::pow(beta, 2) * polynomial_xs) /
+    C;
+
+  // The amount of probability approximately gained at the resonance.
+  const double jump = std::max(
+    std::min((scat_residue * PI * beta * cache.emrz2).real() / C, 1.0), 0.0);
+
+  // We now solve the equation CDF(x) = xi
   const double xi = prn(seed);
 
-  // TODO does this have a factor of sqrt(pi) missing or something?
-  double x = normal_percentile(rootfinding_bootstrap_guess(xi, apprx_0_cdf,
-        dcdx, jump, cache));
+  // Get a good guess at the value of x. For a constant cross section
+  // problem at sufficiently high energy, this is exact. It is not
+  // exact for extreme low energy conditions, however.
+  double x = normal_percentile(rootfinding_bootstrap_guess(
+               xi, apprx_0_cdf, SQRT_PI * dcdx, jump, cache)) /
+             SQRT_2;
 
-  auto cdf = [=](double x) mutable {
+  // Apply up to three Newton-like corrections. The specific formula employed
+  // is described in the C++ edition of the book Numerical Recipes. It
+  // thresholds Halley's method when close to the root.
+  for (int i = 0; i < 3; ++i) {
     cache.emx2 = std::exp(-x * x);
     cache.erfx = std::erf(x);
-    return ((scat_residue * PI * beta * incomplete_faddeeva(cache, x)).real() +
-             0.25 / (beta * beta) * polynomial_xs *
-               (-2.0 * cache.emx2 * (x + 2.0 * y) +
-                 SQRT_PI * (1.0 + 2.0 * y * y) * (1.0 + cache.erfx)) +
-             0.5 / (beta * beta) * polynomial_xs_slope *
-               (-cache.emx2 * (1.0 + std::pow(x + y, 2)) +
-                 SQRT_PI * y * (1.0 + cache.erfx))) /
-           C;
-  };
-  auto shifted_cdf = [xi, cdf](double x) mutable { return cdf(x) - xi; };
-  const double x_sample = bisection_root(-4.0, 4.0, shifted_cdf);
 
-  return x_sample / beta + sqrtE;
+    // Evaluate the cumulative distribution function
+    const double cdf =
+      ((scat_residue * PI * beta * incomplete_faddeeva(cache, x)).real() +
+        0.25 / (beta * beta) * polynomial_xs *
+          (-2.0 * cache.emx2 * (x + 2.0 * y) +
+            SQRT_PI * (1.0 + 2.0 * y * y) * (1.0 + cache.erfx)) +
+        0.5 / (beta * beta) * polynomial_xs_slope *
+          (-cache.emx2 * (1.0 + std::pow(x + y, 2)) +
+            SQRT_PI * y * (1.0 + cache.erfx))) /
+      C;
+    if (std::abs(cdf - xi) < 1e-6)
+      break;
+
+    // Evaluate the probability density function (derivative for Newton)
+    const double pdf =
+      (cache.emx2 * (std::pow(beta, -2) * polynomial_xs * std::pow(x + y, 2) +
+                      (scat_residue * beta / (cache.z - x) * 1.0i).real() +
+                      cache.emx2 * std::pow(beta, -2) * polynomial_xs_slope *
+                        std::pow(x + y, 2) * x)) /
+      C;
+
+    // Derivative of the PDF with respect to x.
+    const double pdf2 =
+      (-2.0 * x * pdf * C +
+        cache.emx2 *
+          (2.0 * std::pow(beta, -2) * polynomial_xs * (x + y) +
+            (1.0i * scat_residue * beta / std::pow(z - x, 2)).real())) /
+      C;
+
+    // Compute the Newton update
+    double halley_factor =
+      std::max(0.8, std::min(1.2, 1 - 0.5 * (cdf - xi) * pdf2 / pdf));
+    double step = (cdf - xi) / pdf / halley_factor;
+    step = std::max(-0.3, std::min(step, 0.3)); // clip step size to dx=0.3
+    x -= step;
+  }
+
+  return x / beta + sqrtE;
 }
 
 //========================================================================
@@ -526,38 +576,39 @@ void broaden_wmp_polynomials(double E, double dopp, int n, double factors[])
   }
 }
 
-std::complex<double> e1z(std::complex<double> z) {
+std::complex<double> e1z_apprx(std::complex<double> z)
+{
   constexpr double PI=3.141592653589793;
   constexpr double EL=0.5772156649015328;
   std::complex<double> ce1(0.0, 0.0);
   std::complex<double> cr(0.0, 0.0);
-  std::complex<double> z(x, z_i);
   double a0 = std::abs(z);
-  double xt = -2.0 * std::abs(z_i);
+  double xt = -2.0 * std::abs(z.imag());
 
-  // Handle "infinite" case
-  // if (a0 == 0.0) {
-  //   *result_r = 1.0e300;
-  //   *result_i = 0.0;
-  //   return;
-  // }
+  // Note: not protecting z=0 case, which cannot happen in MARS
+  // method (no pole has zero imaginary part)
 
-  if (a0 <= 3.0 || x < xt && a0 < 40.0) {
+  if (a0 <= 3.0 || z.real() < xt && a0 < 40.0) {
     // Power series
     ce1.real(1.0);
     ce1.imag(0.0);
     cr.real(1.0);
     cr.imag(0.0);
+
+    // Note: this is truncated a bit early to get better speed.
     for (int k=1; k<50; k++) {
       cr = -cr * static_cast<double>(k) * z / std::pow(k + 1, 2);
       ce1 += cr;
-      // if (std::abs(cr) < std::abs(ce1) * 1e-15) break;
+      if (std::abs(cr) < std::abs(ce1) * 1e-15)
+        break;
     }
-    if (x <= 0.0 && z_i == 0.0) {
-      ce1 = -EL - std::log(-z) + z * ce1 - std::complex<double>(0.0, PI * sgn(z_i));
+    if (z.real() <= 0.0 && z.imag() == 0.0) {
+      ce1 = -EL - std::log(-z) + z * ce1 -
+            std::complex<double>(0.0, PI * sgn(z.imag()));
     } else {
       ce1 = -EL - std::log(z) + z * ce1;
     }
+
   } else {
     // continued fraction
     auto zd = 1.0 / z;
@@ -570,13 +621,14 @@ std::complex<double> e1z(std::complex<double> z) {
       zd = 1.0/(zd * static_cast<double>(k) + z);
       zdc = (z * zd - 1.0) * zdc;
       zc += zdc;
-      // if (std::abs(zdc) <= std::abs(zc) * 1e-15 && k >= 20) break;
+      if (std::abs(zdc) <= std::abs(zc) * 1e-15 && k >= 20)
+        break;
     }
     ce1 = std::exp(-z) * zc;
-    if (x <= 0.0 && z_i == 0.0) ce1 -= std::complex<double>(0.0, PI);
+    if (z.real() <= 0.0 && z.imag() == 0.0)
+      ce1 -= std::complex<double>(0.0, PI);
   }
-  *result_r = ce1.real();
-  *result_i = ce1.imag();
+  return ce1;
 }
 
 } // namespace openmc

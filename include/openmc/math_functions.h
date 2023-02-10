@@ -200,5 +200,21 @@ std::complex<double> faddeeva(std::complex<double> z);
 //! \return Derivative of Faddeeva function evaluated at z
 std::complex<double> w_derivative(std::complex<double> z, int order);
 
+/*
+ *    sgn
+ *    ---
+ *
+ * Implementation of the signum function:
+ * sgn(x) = -1.0     x  < 0.0
+ * sgn(x) =  0.0     x == 0.0
+ * sgn(x) =  1.0     x  > 0.0
+ *
+ */
+template<typename T>
+T sgn(T val)
+{
+  return (0.0 < val) - (val < 0.0);
+}
+
 } // namespace openmc
 #endif // OPENMC_MATH_FUNCTIONS_H

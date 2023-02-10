@@ -129,10 +129,16 @@ void read_multipole_data(int i_nuclide);
 extern "C" void broaden_wmp_polynomials(
   double E, double dopp, int n, double factors[]);
 
-// Calculates the E1(z) integral for complex inputs
-// Beware: this is only used as an approximation and is
-// not guaranteed to be accurate.
-std::complex<double> e1z(std::complex<double> z);
+/* Calculates the E1(z) integral for complex inputs
+ * Beware: this is only used as an approximation and is
+ * not guaranteed to be accurate.
+ *
+ * This has not been put into math_functions.h because
+ * it is only to be used as an approximation. It
+ * has been vetted for bootstrapping the rootfinding
+ * process behind MARS, however, and hence lives here.
+ */
+std::complex<double> e1z_apprx(std::complex<double> z);
 
 } // namespace openmc
 

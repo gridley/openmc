@@ -324,20 +324,6 @@ std::complex<double> jump_integral(
 }
 
 /*
- *    sgn
- *    ---
- *
- * Implementation of the sign function:
- * sgn(x) = -1.0     x  < 0.0
- * sgn(x) =  0.0     x == 0.0
- * sgn(x) =  1.0     x  > 0.0
- *
- */
-double sgn(double val) {
-    return (0.0 < val) - (val < 0.0);
-}
-
-/*
  * Documented in header file.
  */
 std::complex<double> incomplete_faddeeva(

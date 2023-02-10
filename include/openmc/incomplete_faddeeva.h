@@ -5,9 +5,16 @@
 
 namespace openmc {
 
-// Holds some values that are useful to cache throughout
-// computations. Redundantly calculating over the root
-// finding procedure would be inefficient.
+/* Holds some values that are useful to cache throughout
+ * computations. Redundantly calculating over the root
+ * finding procedure would be inefficient.
+ *
+ * The compiler would ordinarily know to cache these
+ * results if everything were confined to the same compilation
+ * unit, but for sake of code organization, incomplete
+ * Faddeeva calculation methods have been kept separate
+ * from windowed multipole code.
+ */
 struct IncompleteFaddeevaCache {
   const std::complex<double> z;    // z
   const std::complex<double> wz;   // stores w(z)
