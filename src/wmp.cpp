@@ -432,13 +432,14 @@ double WindowedMultipole::sample_target_relative_speed(
       std::pow(y, 2) / std::pow(beta, 2) * polynomial_xs) /
     C;
 
-  // The amount of probability approximately gained at the resonance.
+  // The approximate amount of probability gained at the resonance:
   const double jump = std::max(
     std::min((scat_residue * PI * beta * cache.emrz2).real() / C, 1.0), 0.0);
 
   // Get a good guess at the value of x. For a constant cross section
   // problem at sufficiently high energy, this is exact. It is not
-  // exact for extreme low energy conditions, however.
+  // exact for extreme low energy conditions, however, or when resonances
+  // are present.
   double x = normal_percentile(rootfinding_bootstrap_guess(
                xi, apprx_0_cdf, SQRT_PI * dcdx, jump, cache)) /
              SQRT_2;
@@ -446,7 +447,7 @@ double WindowedMultipole::sample_target_relative_speed(
   // Apply up to three Newton-like corrections. The specific formula employed
   // is described in the C++ edition of the book Numerical Recipes. It
   // thresholds Halley's method when close to the root.
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < 20; ++i) {
     cache.emx2 = std::exp(-x * x);
     cache.erfx = std::erf(x);
 
