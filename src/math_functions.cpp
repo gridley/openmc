@@ -893,16 +893,53 @@ std::complex<double> faddeeva(std::complex<double> z)
   // representation of multilevel cross sections and its practical
   // applications." Nucl. Sci. Eng. 96.3 (1987): 192-209.
   //
-  // The MIT Faddeeva function evaluates w(z) = exp(-z^2)erfc(-iz). These
-  // two forms of the Faddeeva function are related by a transformation.
-  //
-  // If we call the integral form w_int, and the function form w_fun:
-  // For imag(z) > 0, w_int(z) = w_fun(z)
-  // For imag(z) < 0, w_int(z) = -conjg(w_fun(conjg(z)))
+  // This is a Schreir-form 16 term rational expression from
+  // Forget, Yu, Ridley. “Performance Improvements of the
+  // Windowed Multipole Formalism Using a Rational Fraction
+  // Approximation of the Faddeeva Function.” Pittsburg, PA, 2022.
 
-  // Note that Faddeeva::w will interpret zero as machine epsilon
-  return z.imag() > 0.0 ? Faddeeva::w(z)
-                        : -std::conj(Faddeeva::w(std::conj(z)));
+  z += std::complex<double>(1.31183j);
+  const auto zz = z * z;
+  constexpr std::array<std::complex<double>, 16> aa = {41445.0374210222,
+    -136631.072925829j, -191726.143960199, 268628.568621291j, 173247.907201704,
+    -179862.56759178j, -63310.0020563537, 56893.7798630723j, 11256.4939105413,
+    -9362.62673144278j, -1018.67334277366, 810.629101627698j, 44.5707404545965,
+    -34.5401929182016j, -0.740120821385939, 0.564189583547714j};
+  constexpr std::array<std::complex<double>, 16> bb = {7918.06640624997, 0.0,
+    -126689.0625, 0.0, 295607.8125, 0.0, -236486.25, 0.0, 84459.375, 0.0,
+    -15015.0, 0.0, 1365.0, 0.0, -60.0, 0.0};
+  return (((((((((((((((aa[15] * z + aa[14]) * z + aa[13]) * z + aa[12]) * z +
+                      aa[11]) *
+                       z +
+                     aa[10]) *
+                      z +
+                    aa[9]) *
+                     z +
+                   aa[8]) *
+                    z +
+                  aa[7]) *
+                   z +
+                 aa[6]) *
+                  z +
+                aa[5]) *
+                 z +
+               aa[4]) *
+                z +
+              aa[3]) *
+               z +
+             aa[2]) *
+              z +
+            aa[1]) *
+             z +
+           aa[0]) /
+         ((((((((zz + bb[14]) * zz + bb[12]) * zz + bb[10]) * zz + bb[8]) * zz +
+              bb[6]) *
+               zz +
+             bb[4]) *
+              zz +
+            bb[2]) *
+             zz +
+           bb[0]);
 }
 
 std::complex<double> w_derivative(std::complex<double> z, int order)
