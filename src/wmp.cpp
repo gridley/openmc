@@ -398,7 +398,7 @@ double WindowedMultipole::sample_target_relative_speed(
   // Short circuit if resonance are far away and at sufficiently
   // high energy. Relative speed distribution reduces to a Gaussian.
   if (std::abs(z.real()) > 20.0 && y > 150.0) {
-    return normal_percentile(xi) / beta + sqrtE;
+    return normal_percentile(xi) / beta / SQRT_2 + sqrtE;
   }
 
   IncompleteFaddeevaCache cache = {
@@ -443,6 +443,7 @@ double WindowedMultipole::sample_target_relative_speed(
   double x = normal_percentile(rootfinding_bootstrap_guess(
                xi, apprx_0_cdf, SQRT_PI * dcdx, jump, cache)) /
              SQRT_2;
+  x = std::max(-4.0, std::min(x, 4.0)); // trim to reasonable range
 
   // Apply up to three Newton-like corrections. The specific formula employed
   // is described in the C++ edition of the book Numerical Recipes. It
