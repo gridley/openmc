@@ -1,9 +1,9 @@
 #include "openmc/math_functions.h"
 
-#include "Faddeeva.hh"
-
 #include "openmc/constants.h"
 #include "openmc/random_lcg.h"
+
+#include <gsl/gsl-lite.hpp>
 
 namespace openmc {
 
@@ -898,6 +898,12 @@ std::complex<double> faddeeva(std::complex<double> z)
   // Windowed Multipole Formalism Using a Rational Fraction
   // Approximation of the Faddeeva Function.” Pittsburg, PA, 2022.
 
+  bool conjugated = false;
+  if (z.imag() < 0.0) {
+    z.imag(-z.imag());
+    conjugated = true;
+  }
+
   z += std::complex<double>(1.31183j);
   const auto zz = z * z;
   constexpr std::array<std::complex<double>, 16> aa = {41445.0374210222,
@@ -908,38 +914,43 @@ std::complex<double> faddeeva(std::complex<double> z)
   constexpr std::array<std::complex<double>, 16> bb = {7918.06640624997, 0.0,
     -126689.0625, 0.0, 295607.8125, 0.0, -236486.25, 0.0, 84459.375, 0.0,
     -15015.0, 0.0, 1365.0, 0.0, -60.0, 0.0};
-  return (((((((((((((((aa[15] * z + aa[14]) * z + aa[13]) * z + aa[12]) * z +
-                      aa[11]) *
-                       z +
-                     aa[10]) *
-                      z +
-                    aa[9]) *
-                     z +
-                   aa[8]) *
-                    z +
-                  aa[7]) *
-                   z +
-                 aa[6]) *
+  std::complex<double> result =
+    (((((((((((((((aa[15] * z + aa[14]) * z + aa[13]) * z + aa[12]) * z +
+                 aa[11]) *
                   z +
-                aa[5]) *
+                aa[10]) *
                  z +
-               aa[4]) *
+               aa[9]) *
                 z +
-              aa[3]) *
+              aa[8]) *
                z +
-             aa[2]) *
+             aa[7]) *
               z +
-            aa[1]) *
+            aa[6]) *
              z +
-           aa[0]) /
-         ((((((((zz + bb[14]) * zz + bb[12]) * zz + bb[10]) * zz + bb[8]) * zz +
-              bb[6]) *
-               zz +
-             bb[4]) *
-              zz +
-            bb[2]) *
-             zz +
-           bb[0]);
+           aa[5]) *
+            z +
+          aa[4]) *
+           z +
+         aa[3]) *
+          z +
+        aa[2]) *
+         z +
+       aa[1]) *
+        z +
+      aa[0]) /
+    ((((((((zz + bb[14]) * zz + bb[12]) * zz + bb[10]) * zz + bb[8]) * zz +
+         bb[6]) *
+          zz +
+        bb[4]) *
+         zz +
+       bb[2]) *
+        zz +
+      bb[0]);
+  if (conjugated)
+    return -std::conj(result);
+  else
+    return result;
 }
 
 std::complex<double> w_derivative(std::complex<double> z, int order)

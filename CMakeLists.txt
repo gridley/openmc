@@ -356,6 +356,7 @@ list(APPEND libopenmc_SOURCES
 
 # Set compile flags for individual files.
 set_property(SOURCE src/incomplete_faddeeva.cpp APPEND PROPERTY COMPILE_FLAGS -ffast-math)
+set_property(SOURCE src/math_functions.cpp APPEND PROPERTY COMPILE_FLAGS -fext-numeric-literals)
 
 # Add bundled external dependencies
 list(APPEND libopenmc_SOURCES
