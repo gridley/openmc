@@ -320,7 +320,7 @@ double WindowedMultipole::sample_target_relative_speed(
   for (int i_pole = window.index_start; i_pole <= window.index_end; ++i_pole) {
     const std::complex<double> z = data_(i_pole, MP_EA) * beta - y;
     const double this_pole_metric =
-      std::abs(data_(i_pole, MP_RS) / faddeeva(z));
+      std::abs(data_(i_pole, MP_RS) * faddeeva(z));
     if (this_pole_metric > pole_metric) {
       selected_pole = i_pole;
       pole_metric = this_pole_metric;
@@ -397,7 +397,9 @@ double WindowedMultipole::sample_target_relative_speed(
 
   // Short circuit if resonance are far away and at sufficiently
   // high energy. Relative speed distribution reduces to a Gaussian.
-  if (std::abs(z.real()) > 20.0 && y > 150.0) {
+  // Also, resonances don't have much of an influence if the imaginary
+  // part is large.
+  if ((std::abs(z.real()) > 20.0 && y > 150.0) || std::abs(z.imag()) > 1.0) {
     return normal_percentile(xi) / beta / SQRT_2 + sqrtE;
   }
 
