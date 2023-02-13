@@ -320,7 +320,7 @@ double WindowedMultipole::sample_target_relative_speed(
   for (int i_pole = window.index_start; i_pole <= window.index_end; ++i_pole) {
     const std::complex<double> z = data_(i_pole, MP_EA) * beta - y;
     const double this_pole_metric =
-      std::abs(data_(i_pole, MP_RS) * faddeeva(z));
+      std::abs(data_(i_pole, MP_RS) * faddeeva(z)) / (-std::log(prn(seed)));
     if (this_pole_metric > pole_metric) {
       selected_pole = i_pole;
       pole_metric = this_pole_metric;
@@ -378,10 +378,14 @@ double WindowedMultipole::sample_target_relative_speed(
     std::complex<double> c_temp =
       -1.0i / (data_(i_pole, MP_EA) - s_opt) / (s_opt * s_opt);
     polynomial_xs += (data_(i_pole, MP_RS) * c_temp).real();
-    polynomial_xs_slope +=
-      (data_(i_pole, MP_RS) * c_temp *
-        (1.0 / (data_(i_pole, MP_EA) - s_opt) - 1.0 / s_opt))
-        .real();
+
+    // With pole sampling, my claim is that this term shouldn't
+    // actually be coming into play. Numerical evidence suggests
+    // this is indeed the case.
+    // polynomial_xs_slope +=
+    //   (data_(i_pole, MP_RS) * c_temp *
+    //     (1.0 / (data_(i_pole, MP_EA) - s_opt) - 1.0 / s_opt))
+    //     .real();
   }
 
   // Shift and nondimensionalize the linearization.
