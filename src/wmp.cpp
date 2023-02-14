@@ -403,8 +403,12 @@ double WindowedMultipole::sample_target_relative_speed(
   // high energy. Relative speed distribution reduces to a Gaussian.
   // Also, resonances don't have much of an influence if the imaginary
   // part is large.
-  if ((std::abs(z.real()) > 20.0 && y > 150.0) || std::abs(z.imag()) > 1.0) {
+  if (std::abs(z.real()) > 20.0 || std::abs(z.imag()) > 1.0 && y > 150.0) {
+    // High energy constant cross section without resonances
     return normal_percentile(xi) / beta / SQRT_2 + sqrtE;
+  } else if (std::abs(scat_residue) < 1e-8 || std::abs(z.real()) > 20.0) {
+    // Low energy constant cross section without resonances
+    return MARS_SAMPLE_CXS;
   }
 
   IncompleteFaddeevaCache cache = {
@@ -494,6 +498,7 @@ double WindowedMultipole::sample_target_relative_speed(
     step = std::max(-0.3, std::min(step, 0.3)); // clip step size to dx=0.3
     x -= step;
   }
+  x = std::max(-5.0, std::min(x, 5.0));
 
   return x / beta + sqrtE;
 }

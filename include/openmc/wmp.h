@@ -32,6 +32,9 @@ constexpr int FIT_F {2}; // Fission
 // Multipole HDF5 file version
 constexpr array<int, 2> WMP_VERSION {1, 1};
 
+// Special flag MARS may return in exceptional cases
+constexpr double MARS_SAMPLE_CXS = {123456789e100};
+
 //========================================================================
 // Windowed multipole data
 //========================================================================

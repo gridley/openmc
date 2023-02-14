@@ -983,6 +983,9 @@ Direction sample_target_velocity(const Nuclide& nuc, double E, Direction u,
     }
     const double v_rel =
       nuc.multipole_->sample_target_relative_speed(E, kT, seed);
+    if (v_rel == MARS_SAMPLE_CXS) {
+      return sample_cxs_target_velocity(nuc.awr_, E, u, kT, seed);
+    }
     const double neutron_speed = std::sqrt(E);
     const double vmin = std::abs(v_rel - neutron_speed);
     const double vmax = v_rel + neutron_speed;
