@@ -406,7 +406,7 @@ double WindowedMultipole::sample_target_relative_speed(
   if (std::abs(z.real()) > 20.0 || std::abs(z.imag()) > 1.0 && y > 150.0) {
     // High energy constant cross section without resonances
     return normal_percentile(xi) / beta / SQRT_2 + sqrtE;
-  } else if (std::abs(scat_residue) < 1e-8 || std::abs(z.real()) > 20.0) {
+  } else if (std::abs(scat_residue) < 1e-8 || std::abs(z.real()) > 20.0 || std::abs(z.imag()) > 1.0) {
     // Low energy constant cross section without resonances
     return MARS_SAMPLE_CXS;
   }
@@ -497,8 +497,8 @@ double WindowedMultipole::sample_target_relative_speed(
     double step = (cdf - xi) / pdf / halley_factor;
     step = std::max(-0.3, std::min(step, 0.3)); // clip step size to dx=0.3
     x -= step;
+    x = std::max(-4.0, std::min(x, 4.0));
   }
-  x = std::max(-5.0, std::min(x, 5.0));
 
   return x / beta + sqrtE;
 }
