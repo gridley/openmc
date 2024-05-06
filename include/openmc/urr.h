@@ -3,11 +3,15 @@
 #ifndef OPENMC_URR_H
 #define OPENMC_URR_H
 
+#include <gsl/gsl-lite.hpp>
+
 #include "xtensor/xtensor.hpp"
 
 #include "openmc/constants.h"
+#include "openmc/error.h"
 #include "openmc/hdf5_interface.h"
 #include "openmc/vector.h"
+#include "openmc/particle_data.h"
 
 namespace openmc {
 
@@ -57,6 +61,40 @@ public:
   {
     return energy_.front() < E && E < energy_.back();
   }
+};
+
+class ContinuousURRData {
+public:
+  ContinuousURRData(const std::string& filename, gsl::index index);
+
+  bool energy_in_bounds(double E) const
+  {
+    return energy_.front() < E && E < energy_.back();
+  }
+
+  // This takes the actual value of energy as the first argument, the temperature
+  // index as the second, and the URR stream seed pointer as third. The temperature
+  // is passed as an index rather than a value because the temperature grid is shared
+  // across all nuclides.
+  void sample(double E, int i_T, uint64_t* seed, NuclideMicroXS& xs);
+
+private:
+  vector<double> energy_; //!< incident energies
+  bool has_fission_ {false};
+
+  xt::xtensor<double, 2> alpha;
+  xt::xtensor<double, 2> beta;
+  xt::xtensor<double, 2> mu;
+  xt::xtensor<double, 2> delta2;
+
+  // Conditional partial values
+  xt::xtensor<double, 2> nodes;
+  xt::xtensor<double, 2> weights;
+  xt::xtensor<double, 3> abs_values;
+  xt::xtensor<double, 3> fiss_values;
+
+  // Copy of the nuclide index for LCG stream reasons
+  gsl::index index_;
 };
 
 } // namespace openmc

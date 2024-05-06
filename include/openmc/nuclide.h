@@ -72,7 +72,7 @@ public:
 
   //! \brief Determines cross sections in the unresolved resonance range
   //! from probability tables.
-  void calculate_urr_xs(int i_temp, Particle& p) const;
+  void calculate_urr_xs(Particle& p) const;
 
   //! \brief Calculate reaction rate based on group-wise flux distribution
   //
@@ -122,9 +122,7 @@ public:
   vector<double> xs_cdf_;
 
   // Unresolved resonance range information
-  bool urr_present_ {false};
-  int urr_inelastic_ {C_NONE};
-  vector<UrrData> urr_data_;
+  std::unique_ptr<ContinuousURRData> continuous_urr_;
 
   vector<unique_ptr<Reaction>> reactions_; //!< Reactions
   array<size_t, 902> reaction_index_;      //!< Index of each reaction
