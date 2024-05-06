@@ -186,21 +186,21 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   abs /= denom;
   fiss /= denom;
 
-  double mul = uniform_distribution(0.99, 1.01, &fseed);
-  xs.total *= mul;
-  xs.absorption *= mul;
-  xs.fission *= mul;
-  xs.elastic *= mul;
+  double mul = uniform_distribution(0.90, 1.1, &fseed);
 
-  // xs.total = sigt;
-  // xs.absorption = abs + fiss;
-  // xs.fission = fiss;
-  // xs.elastic = sigt - abs - fiss;
+  // Get the inelastic, whatever other reaction contributions
+  double non_abs_non_el = xs.total - xs.absorption - xs.elastic;
 
-  // if (simulation::need_depletion_rx) {
-  //   // Separate the pure capture component
-  //   xs.reaction[0] = abs;
-  // }
+  xs.absorption = abs + fiss;
+  xs.fission = fiss;
+  xs.elastic = sigt - abs - fiss;
+
+  xs.total = xs.absorption + xs.elastic + non_abs_non_el;
+
+  if (simulation::need_depletion_rx) {
+    // Separate the pure capture component
+    xs.reaction[0] = abs;
+  }
 }
 
 } // namespace openmc
