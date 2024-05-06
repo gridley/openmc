@@ -186,17 +186,21 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   abs /= denom;
   fiss /= denom;
 
-  // TODO it appears that not using the multiply_total option is probably throwing stuff
-  // off by a lot
-  xs.total = sigt;
-  xs.absorption = abs + fiss;
-  xs.fission = fiss;
-  xs.elastic = sigt - abs - fiss;
+  double mul = uniform_distribution(0.99, 1.01, &fseed);
+  xs.total *= mul;
+  xs.absorption *= mul;
+  xs.fission *= mul;
+  xs.elastic *= mul;
 
-  if (simulation::need_depletion_rx) {
-    // Separate the pure capture component
-    xs.reaction[0] = abs;
-  }
+  // xs.total = sigt;
+  // xs.absorption = abs + fiss;
+  // xs.fission = fiss;
+  // xs.elastic = sigt - abs - fiss;
+
+  // if (simulation::need_depletion_rx) {
+  //   // Separate the pure capture component
+  //   xs.reaction[0] = abs;
+  // }
 }
 
 } // namespace openmc
