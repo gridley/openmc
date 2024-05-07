@@ -148,14 +148,16 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   // an undefined number but quite likely less than 400.
   uint64_t fseed = future_seed(static_cast<uint64_t>(400 * index_), *seed);
 
-  // energy interpolation factor
+  // energy interpolation factor. Using stochastic interpolation.
   double f = (E - energy_[energy_index]) /
         (energy_[energy_index + 1] - energy_[energy_index]);
+  if (prn(&fseed) < f) energy_index++;
 
-  double a = (1.0 - f) * alpha(energy_index, i_T) + f * alpha(energy_index + 1, i_T);
-  double b = (1.0 - f) * beta(energy_index, i_T) + f * beta(energy_index + 1, i_T);
-  double m = (1.0 - f) * mu(energy_index, i_T) + f * mu(energy_index + 1, i_T);
-  double d2 =(1.0 - f) * delta2(energy_index, i_T) + f * delta2(energy_index + 1, i_T);
+
+  double a = alpha(energy_index, i_T);
+  double b = beta(energy_index, i_T);
+  double m = mu(energy_index, i_T);
+  double d2 =delta2(energy_index, i_T);
 
   double sigt = sample_nig(0.5 * (a + b), -0.5 * (b - a), m, d2, &fseed);
 
