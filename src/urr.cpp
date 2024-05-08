@@ -128,6 +128,69 @@ ContinuousURRData::ContinuousURRData(const std::string& filename, gsl::index ind
 
   read_dataset(h5file, "energies", energy_, true);
 
+  // There are 6 temperatures hardcoded in this basic implementation.
+  if (multiply_smooth_) {
+    averages.resize({energy_.size(), 6, 3});
+
+    uint64_t fseed = 1234;
+
+    double scatt_mean = 0.0;
+    double abs_mean = 0.0;
+    double fiss_mean = 0.0;
+
+    constexpr int n_mean_samples = (int)1e5;
+
+    for (int i_E = 0; i_E < energy_.size(); ++i_E) {
+      for (int i_T = 0; i_T < 6; ++i_T) {
+
+        for (int i_sample = 0; i_sample < n_mean_samples; ++i_sample) {
+
+          double a = alpha(i_E, i_T);
+          double b = beta(i_E, i_T);
+          double m = mu(i_E, i_T);
+          double d2 = delta2(i_E, i_T);
+
+          double sigt =
+            sample_nig(0.5 * (a + b), -0.5 * (b - a), m, d2, &fseed);
+          constexpr int bary_order = 5;
+          double denom = 0.0;
+          double abs = 0.0;
+          double fiss = 0.0;
+
+          for (int j = 0; j < bary_order; ++j) {
+            double term = weights(i_E, j) / (sigt - nodes(i_E, j));
+            abs += abs_values(i_E, j, i_T) * term;
+            if (has_fission_)
+              fiss += fiss_values(i_E, j, i_T) * term;
+            denom += term;
+          }
+          abs /= denom;
+          fiss /= denom;
+
+          // Zero out if negative sample.
+          if (sigt <= 0.0) {
+            sigt = 1e-4;
+            abs = 1e-4;
+            fiss = 0.0;
+          }
+
+          // i plus one
+          double ip1 = 1.0 / static_cast<double>(i_sample + 1);
+
+          double scatt = sigt - abs - fiss;
+          scatt_mean = scatt_mean * (ip1 * i_sample) + scatt * ip1;
+
+          abs_mean = abs_mean * (ip1 * i_sample) + abs * ip1;
+          fiss_mean = fiss_mean * (i_sample * ip1) + fiss * ip1;
+        }
+
+        averages(i_E, i_T, 0) = scatt_mean;
+        averages(i_E, i_T, 1) = abs_mean;
+        averages(i_E, i_T, 2) = fiss_mean;
+      }
+    }
+  }
+
   file_close(h5file);
 
 
@@ -188,14 +251,39 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   abs /= denom;
   fiss /= denom;
 
-  double mul = uniform_distribution(0.90, 1.1, &fseed);
+  // #pragma omp critical
+  //   {
+  //     double fval = fiss == 0.0? 1.0 : fiss / averages(energy_index, i_T, 2);
+  //     printf("%f %f %f\n", sigt / averages(energy_index, i_T, 0),
+  //         abs / averages(energy_index, i_T, 1),
+  //         fval);
+  //   }
 
   // Get the inelastic, whatever other reaction contributions
   double non_abs_non_el = xs.total - xs.absorption - xs.elastic;
 
-  xs.absorption = abs + fiss;
-  xs.fission = fiss;
-  xs.elastic = sigt - abs - fiss;
+  if (multiply_smooth_) {
+
+    // Create shielding factors that have an average of one.
+    // These multiply the capture, fission, and elastic cross sections.
+    double fmul = fiss == 0.0 ? 1.0 : fiss / averages(energy_index, i_T, 2);
+    double cap = xs.absorption - xs.fission;
+    double newcap = cap * abs / averages(energy_index, i_T, 1);
+    double newfiss = xs.fission * fmul;
+    double scatmul = (sigt - abs - fiss) / averages(energy_index, i_T, 0);
+
+    xs.fission = newfiss;
+    xs.absorption = newcap + newfiss;
+    xs.elastic *= scatmul;
+  } else {
+
+    // This is a direct lookup from the table. The values
+    // do not necessarily have averages equal to the pointwise
+    // grid given in file 3.
+    xs.absorption = abs + fiss;
+    xs.fission = fiss;
+    xs.elastic = sigt - abs - fiss;
+  }
 
   xs.total = xs.absorption + xs.elastic + non_abs_non_el;
 

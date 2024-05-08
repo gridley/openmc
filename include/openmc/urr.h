@@ -93,8 +93,15 @@ private:
   xt::xtensor<double, 3> abs_values;
   xt::xtensor<double, 3> fiss_values;
 
+  // Averages for if we're using these to multiply the pointwise value
+  // The last dimension is of length 3. Total, absorption, and maybe fission.
+  xt::xtensor<double, 3> averages;
+
   // Copy of the nuclide index for LCG stream reasons
   gsl::index index_;
+
+  // This is hardcoded and can be changed to experiment
+  bool multiply_smooth_ {false};
 };
 
 } // namespace openmc
