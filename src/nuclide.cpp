@@ -22,6 +22,7 @@
 
 #include <algorithm> // for sort, min_element
 #include <string>    // for to_string, stoi
+#include <filesystem>
 
 namespace openmc {
 
@@ -257,7 +258,12 @@ Nuclide::Nuclide(hid_t group, const vector<double>& temperature)
     // Look at this awesome coding practice.. listen, I just wanna graduate
     std::string basepath = "/Users/gavin/Documents/ptable-fitting/final_tables/urr_hdf5/";
     std::string ext = ".hdf5";
-    continuous_urr_ = std::make_unique<ContinuousURRData>(basepath + name_ + ext, index_);
+    std::string fname = basepath + name_ + ext;
+    if (std::filesystem::exists(fname)) {
+      continuous_urr_ = std::make_unique<ContinuousURRData>(fname, index_);
+    } else {
+      warning("    Skipping URR for nuclide ^^");
+    }
   }
 
   // Check for total nu data
