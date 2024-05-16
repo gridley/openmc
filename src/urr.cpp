@@ -250,6 +250,10 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   }
   abs /= denom;
   fiss /= denom;
+  if (abs < 0.0) abs = 0.0;
+    // printf("negative absorption!\n");
+  if (fiss < 0.0) fiss = 0.0;
+    // printf("negative fiss!\n");
 
   // #pragma omp critical
   //   {
