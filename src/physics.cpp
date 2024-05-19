@@ -481,6 +481,8 @@ int sample_nuclide(Particle& p)
   const auto& mat {model::materials[p.material()]};
   int n = mat->nuclide_.size();
 
+  // printf("Begin nuclide sample lookup...\n");
+
   double prob = 0.0;
   for (int i = 0; i < n; ++i) {
     // Get atom density
@@ -488,9 +490,12 @@ int sample_nuclide(Particle& p)
     double atom_density = mat->atom_density_[i];
 
     // Increment probability to compare to cutoff
+    // printf("%s    %f\n", data::nuclides[i_nuclide]->name_.c_str(), p.neutron_xs(i_nuclide).total);
     prob += atom_density * p.neutron_xs(i_nuclide).total;
-    if (prob >= cutoff)
+    if (prob >= cutoff) {
       return i_nuclide;
+      // printf("\n\n\n");
+    }
   }
 
   // If we reach here, no nuclide was sampled

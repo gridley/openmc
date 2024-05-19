@@ -101,7 +101,7 @@ private:
   gsl::index index_;
 
   // This is hardcoded and can be changed to experiment
-  bool multiply_smooth_ {false};
+  bool multiply_smooth_ {true};
 };
 
 } // namespace openmc

@@ -7,6 +7,7 @@
 
 #include <algorithm> // any_of
 #include <iostream>
+#include <cmath> //isnan
 
 namespace openmc {
 
@@ -224,7 +225,7 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
 
   double sigt = sample_nig(0.5 * (a + b), -0.5 * (b - a), m, d2, &fseed);
 
-  if (sigt <= 0.0) {
+  if (sigt <= 0.0 || isnan(sigt) ) {
     sigt = 1e-4;
     xs.total = 1e-4;
     xs.absorption = 1e-4;
@@ -254,6 +255,16 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
     // printf("negative absorption!\n");
   if (fiss < 0.0) fiss = 0.0;
     // printf("negative fiss!\n");
+
+  if (isnan(abs) || isnan(fiss)) {
+    sigt = 1e-4;
+    xs.total = 1e-4;
+    xs.absorption = 1e-4;
+    xs.fission = 0.0;
+    xs.nu_fission = 0.0;
+    xs.elastic = 0.0;
+    return;
+  }
 
   // #pragma omp critical
   //   {
@@ -290,6 +301,15 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   }
 
   xs.total = xs.absorption + xs.elastic + non_abs_non_el;
+  if (isnan(xs.total)) {
+    sigt = 1e-4;
+    xs.total = 1e-4;
+    xs.absorption = 1e-4;
+    xs.fission = 0.0;
+    xs.nu_fission = 0.0;
+    xs.elastic = 0.0;
+    return;
+  }
 
   if (simulation::need_depletion_rx) {
     // Separate the pure capture component
