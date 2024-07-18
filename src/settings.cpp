@@ -141,7 +141,7 @@ __constant__ TemperatureMethod temperature_method;
 __constant__ bool urr_ptables_on;
 __constant__ bool c_micro_xs_caching;
 
-unsigned thread_block_size {BLOCKSIZE};
+unsigned thread_block_size {256};
 bool cuda_profile {false};
 bool sort_xs_lookup {false};
 bool micro_xs_caching {true};
@@ -902,9 +902,6 @@ void read_settings_xml()
   if (check_for_node(root, "thread_block_size")) {
     gpu::thread_block_size =
       std::stoi(get_node_value(root, "thread_block_size"));
-    if (gpu::thread_block_size != BLOCKSIZE)
-      fatal_error(
-        "GPU code not compiled for " BLOCKSIZE_S " threads per block!");
   }
   if (check_for_node(root, "cuda_profile")) {
     gpu::cuda_profile = get_node_value_bool(root, "cuda_profile");

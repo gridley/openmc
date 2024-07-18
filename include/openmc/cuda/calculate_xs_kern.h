@@ -310,7 +310,7 @@ struct NuclideMicroXSDummy<false> {
 // ForCollision -- runs right before a collision and caches all micro XS,
 // in cache-free mode.
 template <bool UseWMP, bool UseMicroCache, bool ForCollision = false>
-__global__ void __launch_bounds__(BLOCKSIZE) process_calculate_xs_events_device_wmp(
+__global__ void  process_calculate_xs_events_device_wmp(
   EventQueueItem* __restrict__ queue)
 {
   using EmissionMode = ReactionProduct::EmissionMode;

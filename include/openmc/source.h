@@ -48,7 +48,7 @@ public:
   // Methods that must be implemented. The particle pointer, if not null,
   // can be used to not need to allocate a particle object as is required
   // by openmc_find_cell, which can be time-consuming in the rejection loop.
-  HD virtual SourceSite sample(uint64_t* seed, Particle* p = nullptr) const = 0;
+  HD virtual SourceSite sample(uint64_t* seed, Particle* p = nullptr) const {return {};}
 
   // Methods that can be overridden
   HD virtual double strength() const { return 1.0; }
@@ -69,7 +69,7 @@ public:
   //! Sample from the external source distribution
   //! \param[inout] seed Pseudorandom seed pointer
   //! \return Sampled site
-  HD SourceSite sample(uint64_t* seed, Particle* p) const override;
+  HD virtual SourceSite sample(uint64_t* seed, Particle* p = nullptr) const override;
 
   // Properties
   HD ParticleType particle_type() const { return particle_; }
@@ -99,7 +99,7 @@ public:
   FileSource(FileSource&&) = default;
 
   // Methods
-  HD SourceSite sample(uint64_t* seed, Particle* p) const override;
+  HD virtual SourceSite sample(uint64_t* seed, Particle* p = nullptr) const override;
 
 private:
   vector<SourceSite> sites_; //!< Source sites from a file
@@ -122,7 +122,7 @@ public:
   virtual ~CustomSourceWrapper();
 
   // Defer implementation to custom source library
-  HD SourceSite sample(uint64_t* seed, Particle* p = nullptr) const override
+  HD virtual SourceSite sample(uint64_t* seed, Particle* p = nullptr) const override
   {
     return custom_source_->sample(seed);
   }

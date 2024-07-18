@@ -128,8 +128,6 @@ __constant__ extern TemperatureMethod temperature_method;
 __constant__ extern bool urr_ptables_on;
 __constant__ extern bool c_micro_xs_caching;
 
-#define BLOCKSIZE 256     // Going to make this run-time selectable eventually
-#define BLOCKSIZE_S "256" // for error message
 extern unsigned thread_block_size;
 
 // whether to use the cuda profiler. Just calls start/stop on profiler API.

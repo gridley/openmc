@@ -156,7 +156,7 @@ IndependentSource::IndependentSource(pugi::xml_node node)
   }
 }
 
-SourceSite IndependentSource::sample(uint64_t* seed, Particle* p) const
+HD SourceSite IndependentSource::sample(uint64_t* seed, Particle* p) const
 {
 #ifdef __CUDA_ARCH__
   using gpu::cells;
@@ -319,7 +319,7 @@ FileSource::FileSource(std::string const& path)
   file_close(file_id);
 }
 
-SourceSite FileSource::sample(uint64_t* seed, Particle* p) const
+HD SourceSite FileSource::sample(uint64_t* seed, Particle* p) const
 {
   size_t i_site = sites_.size()*prn(seed);
   return sites_[i_site];
