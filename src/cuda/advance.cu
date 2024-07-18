@@ -12,7 +12,7 @@ __global__ void process_advance_events_device(
 {
   const unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   const auto p_idx = queue[tid];
-  Particle p(p_idx);
+  Particle& p = particles[p_idx];
 
   // Find the distance to the nearest boundary
   const BoundaryInfo bdry = distance_to_boundary(p);

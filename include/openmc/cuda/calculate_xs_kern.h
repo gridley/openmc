@@ -320,7 +320,8 @@ __global__ void  process_calculate_xs_events_device_wmp(
   const int mat_idx = __ldg(&queue[tid].material);
   double cutoff; // used only for pre-collision. Compiler will eliminate otherwise
   double prob; // ^^^^^
-  Particle p(idx);
+  // Particle p(idx);
+  Particle& p = particles[p_idx];
 
   // Store pre-collision particle properties
   // TODO potentially remove this stuff???

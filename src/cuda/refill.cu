@@ -9,7 +9,8 @@ __constant__ unsigned* dead_particle_indices;
 __global__ void scan_for_dead_particles(unsigned n_particles)
 {
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
-  Particle p(tid);
+  // Particle p(tid);
+  Particle& p = particles[p_idx];
 
   if (tid < n_particles) {
     if (!p.alive()) {
@@ -27,7 +28,8 @@ __global__ void refill_dead_particle_slots(unsigned n_refilled,
 {
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   unsigned p_idx = tid < n_refilled ? dead_particle_indices[tid] : 0;
-  Particle p(p_idx);
+  // Particle p(p_idx);
+  Particle& p = particles[p_idx];
 
   if (tid < n_refilled) {
     p.initialize_values();

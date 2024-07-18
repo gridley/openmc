@@ -12,7 +12,8 @@ __global__ void process_collision_events_device(
 {
   const unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   const unsigned p_idx = queue[tid].idx;
-  Particle p(p_idx);
+  //Particle p(p_idx);
+  Particle& p = particles[p_idx];
 
   p.event_collide();
 

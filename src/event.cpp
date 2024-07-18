@@ -60,16 +60,12 @@ void init_event_queues(unsigned n_particles)
   // If we're not doing SOA particles, allocate an AOS of particles
   // If we are doing SOA particles, those arrays must be allocated
   // after we know how many tallies and nuclides are in the problem.
-#ifndef __CUDACC__
   simulation::particles.resize(n_particles);
-#endif
 
   // TODO make this cleaner
-#ifdef __CUDACC__
   simulation::dead_particle_indices.reserve(n_particles);
   auto tmp = simulation::dead_particle_indices.data();
   cudaMemcpyToSymbol(gpu::dead_particle_indices, &tmp, sizeof(unsigned*));
-#endif
 
   queue_size = n_particles;
 }

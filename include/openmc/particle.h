@@ -25,12 +25,6 @@
 // Only in CUDA we use structure-of-array particles. Although,
 // maybe we should add SOA mode as an option on the CPU as well
 // as a compile-time flag.
-#ifdef __CUDACC__
-#define ParticleBase ParticleHandle
-#include "openmc/soa_particle.h"
-#else
-#define ParticleBase ParticleData
-#endif
 
 namespace openmc {
 
@@ -44,7 +38,7 @@ class Surface;
  * can be found in particle_data.h.
  */
 
-class Particle : public ParticleBase {
+class Particle : public ParticleData {
 public:
 
   //==========================================================================
@@ -52,10 +46,6 @@ public:
 
   Particle() = default;
 
-  // In struct-of-array mode, we construct based off a particle index
-#ifdef __CUDACC__
-  HD Particle(const int& i_particle) : ParticleHandle(i_particle) {}
-#endif
 
   //! create a secondary particle
   //

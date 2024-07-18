@@ -14,7 +14,8 @@ __global__ void process_initialize_events_device(unsigned queue_size,
   EventQueueItem* __restrict__ calculate_fuel_xs_queue)
 {
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
-  Particle p(tid);
+  // Particle p(tid);
+  Particle& p = particles[p_idx];
 
   if (tid < queue_size) {
     p.initialize_values();

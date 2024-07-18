@@ -11,7 +11,8 @@ __global__ void process_surface_crossing_events_device(
 {
   const unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   const unsigned p_idx = tid < queue_size ? queue[tid] : 0;
-  Particle p(p_idx);
+  // Particle p(p_idx);
+  Particle& p = particles[p_idx];
 
   if (tid < queue_size) {
     p.event_cross_surface();
