@@ -49,8 +49,8 @@ ParticleData::ParticleData()
   filter_matches_.resize(model::tally_filters.size());
 
   // Create microscopic cross section caches
-  neutron_xs_.resize(data::nuclides.size());
-  photon_xs_.resize(data::elements.size());
+  // neutron_xs_.resize(data::nuclides.size());
+  // photon_xs_.resize(data::elements.size());
 }
 
 } // namespace openmc

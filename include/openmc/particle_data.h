@@ -232,28 +232,13 @@ private:
   vector<LocalCoord> coord_;      //!< coordinates for all levels
 
   // Particle coordinates before crossing a surface
-  int n_coord_last_ {1};       //!< number of current coordinates
-  vector<int> cell_last_;      //!< coordinates for all levels
 
   // Energy data
   xsfloat E_;      //!< post-collision energy in eV
-  xsfloat E_last_; //!< pre-collision energy in eV
-  int g_ {0};     //!< post-collision energy group (MG only)
-  int g_last_;    //!< pre-collision energy group (MG only)
 
   // Other physical data
   double wgt_ {1.0};  //!< particle weight
-  xsfloat mu_;         //!< angle of scatter
   bool alive_ {true}; //!< is particle alive?
-
-  // Other physical data
-  Position r_last_current_; //!< coordinates of the last collision or
-                            //!< reflective/periodic surface crossing for
-                            //!< current tallies
-  Position r_last_;         //!< previous coordinates
-  Direction u_last_;        //!< previous direction coordinates
-  double wgt_last_ {1.0};   //!< pre-collision particle weight
-  double wgt_absorb_ {0.0}; //!< weight absorbed for survival biasing
 
   // What event took place
   bool fission_ {false};  //!< did particle cause implicit fission
@@ -271,16 +256,13 @@ private:
 
   // Indices for various arrays
   int surface_ {0};        //!< index for surface particle is on
-  int cell_born_ {-1};     //!< index for cell particle was born in
   int material_ {-1};      //!< index for current material
-  int material_last_ {-1}; //!< index for last material
 
   // Boundary information
   BoundaryInfo boundary_;
 
   // Temperature of current cell
   xsfloat sqrtkT_ {-1.0};     //!< sqrt(k_Boltzmann * temperature) in eV
-  xsfloat sqrtkT_last_ {0.0}; //!< last temperature
 
   // Statistical data
   int n_collision_ {0}; //!< number of collisions
@@ -297,25 +279,19 @@ private:
 
   int64_t current_work_; // current work index
 
-  vector<double> flux_derivs_; // for derivatives for this particle
-
-  vector<FilterMatch> filter_matches_; // tally filter matches
-
-  vector<vector<Position>> tracks_; // tracks for outputting to file
-
   vector<NuBank> nu_bank_; // bank of most recently fissioned particles
 
-  // Global tally accumulators
+  // Global tally accumulators (these should not be stored on the particle!!)
   double keff_tally_absorption_ {0.0};
   double keff_tally_collision_ {0.0};
   double keff_tally_tracklength_ {0.0};
   double keff_tally_leakage_ {0.0};
 
-  bool trace_ {false}; //!< flag to show debug information
+  // bool trace_ {false}; //!< flag to show debug information
 
   double collision_distance_; // distance to particle's next closest collision
 
-  int n_event_ {0}; // number of events executed in this particle's history
+  // int n_event_ {0}; // number of events executed in this particle's history
 
 // DagMC state variables
 #ifdef DAGMC
@@ -329,9 +305,6 @@ public:
   //==========================================================================
   // Methods and accessors
 
-  NuclideMicroXS& neutron_xs(int i) { return neutron_xs_[i]; }
-  const NuclideMicroXS& neutron_xs(int i) const { return neutron_xs_[i]; }
-  ElementMicroXS& photon_xs(int i) { return photon_xs_[i]; }
   MacroXS& macro_xs() { return macro_xs_; }
   const MacroXS& macro_xs() const { return macro_xs_; }
 
@@ -347,33 +320,33 @@ public:
   LocalCoord& coord(int i) { return coord_[i]; }
   const LocalCoord& coord(int i) const { return coord_[i]; }
 
-  int& n_coord_last() { return n_coord_last_; }
-  const int& n_coord_last() const { return n_coord_last_; }
-  int& cell_last(int i) { return cell_last_[i]; }
-  const int& cell_last(int i) const { return cell_last_[i]; }
+  // int& n_coord_last() { return n_coord_last_; }
+  // const int& n_coord_last() const { return n_coord_last_; }
+  // int& cell_last(int i) { return cell_last_[i]; }
+  // const int& cell_last(int i) const { return cell_last_[i]; }
 
   xsfloat& E() { return E_; }
   const xsfloat& E() const { return E_; }
-  xsfloat& E_last() { return E_last_; }
-  const xsfloat& E_last() const { return E_last_; }
-  int& g() { return g_; }
-  const int& g() const { return g_; }
-  int& g_last() { return g_last_; }
-  const int& g_last() const { return g_last_; }
+  // xsfloat& E_last() { return E_last_; }
+  // const xsfloat& E_last() const { return E_last_; }
+  // int& g() { return g_; }
+  // const int& g() const { return g_; }
+  // int& g_last() { return g_last_; }
+  // const int& g_last() const { return g_last_; }
 
   double& wgt() { return wgt_; }
   xsfloat& mu() { return mu_; }
   const xsfloat& mu() const { return mu_; }
   bool& alive() { return alive_; }
 
-  Position& r_last_current() { return r_last_current_; }
-  const Position& r_last_current() const { return r_last_current_; }
-  Position& r_last() { return r_last_; }
-  const Position& r_last() const { return r_last_; }
-  Position& u_last() { return u_last_; }
-  const Position& u_last() const { return u_last_; }
-  double& wgt_last() { return wgt_last_; }
-  const double& wgt_last() const { return wgt_last_; }
+  // Position& r_last_current() { return r_last_current_; }
+  // const Position& r_last_current() const { return r_last_current_; }
+  // Position& r_last() { return r_last_; }
+  // const Position& r_last() const { return r_last_; }
+  // Position& u_last() { return u_last_; }
+  // const Position& u_last() const { return u_last_; }
+  // double& wgt_last() { return wgt_last_; }
+  // const double& wgt_last() const { return wgt_last_; }
   double& wgt_absorb() { return wgt_absorb_; }
   const double& wgt_absorb() const { return wgt_absorb_; }
 
@@ -393,17 +366,17 @@ public:
 
   int& surface() { return surface_; }
   const int& surface() const { return surface_; }
-  int& cell_born() { return cell_born_; }
-  const int& cell_born() const { return cell_born_; }
+  // int& cell_born() { return cell_born_; }
+  // const int& cell_born() const { return cell_born_; }
   int& material() { return material_; }
   const int& material() const { return material_; }
-  int& material_last() { return material_last_; }
+  // int& material_last() { return material_last_; }
 
   BoundaryInfo& boundary() { return boundary_; }
 
   xsfloat& sqrtkT() { return sqrtkT_; }
   const xsfloat& sqrtkT() const { return sqrtkT_; }
-  xsfloat& sqrtkT_last() { return sqrtkT_last_; }
+  // xsfloat& sqrtkT_last() { return sqrtkT_last_; }
 
   int& n_collision() { return n_collision_; }
   const int& n_collision() const { return n_collision_; }
@@ -431,7 +404,7 @@ public:
   double& keff_tally_tracklength() { return keff_tally_tracklength_; }
   double& keff_tally_leakage() { return keff_tally_leakage_; }
 
-  bool& trace() { return trace_; }
+  bool& trace() { return false; }
   double& collision_distance() { return collision_distance_; }
   int& n_event() { return n_event_; }
 
