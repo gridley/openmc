@@ -220,8 +220,7 @@ private:
   // Data members (accessor methods are below)
 
   // Cross section caches
-  vector<NuclideMicroXS> neutron_xs_; //!< Microscopic neutron cross sections
-  vector<ElementMicroXS> photon_xs_;  //!< Microscopic photon cross sections
+  NuclideMicroXS neutron_xs_; //!< Microscopic neutron cross sections
   MacroXS macro_xs_;                      //!< Macroscopic cross sections
 
   int64_t id_;                                //!< Unique ID
@@ -404,6 +403,9 @@ public:
   double& keff_tally_tracklength() { return keff_tally_tracklength_; }
   double& keff_tally_leakage() { return keff_tally_leakage_; }
 
+  NuclideMicroXS& neutron_xs() { return neutron_xs_; }
+  NuclideMicroXS const& neutron_xs() const { return neutron_xs_; }
+
   bool& trace() { return false; }
   double& collision_distance() { return collision_distance_; }
   int& n_event() { return n_event_; }
@@ -438,8 +440,7 @@ public:
   //! Force recalculation of neutron xs by setting last energy to zero
   void invalidate_neutron_xs()
   {
-    for (auto& micro : neutron_xs_)
-      micro.last_E = 0.0;
+    neutron_xs_.last_E = 0.0;
   }
 
   //! resets all coordinate levels for the particle

@@ -381,7 +381,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
       // How to have conditionally present stack variable????
       // Probably a templated type. Nothing if false, NuclideMicroXS if true
       if constexpr (UseMicroCache) {
-        micro_ref = &p.neutron_xs(i);
+        static_assert(false);
       }
 
       micro.index_sab = C_NONE;
@@ -818,7 +818,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
           onstack.use_ptable = micro.use_ptable;
           onstack.thermal = micro.thermal;
           onstack.thermal_elastic = micro.thermal_elastic;
-          p.neutron_xs(0) = onstack;
+          p.neutron_xs = onstack;
           cutoff = 1e9; // prevent any more updates
           queue[tid].material = i; // for sorting collision nuclide
         }
