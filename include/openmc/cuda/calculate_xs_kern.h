@@ -306,10 +306,7 @@ struct NuclideMicroXSDummy<false> {
 // It makes the pointwise code _slightly_ faster to known whether WMP
 // will not be used in advance. Probably some register optimizations being
 // done by the CUDA compiler.
-//
-// ForCollision -- runs right before a collision and caches all micro XS,
-// in cache-free mode.
-template <bool UseWMP, bool UseMicroCache, bool ForCollision = false>
+template <bool UseWMP, bool UseMicroCache>
 __global__ void  process_calculate_xs_events_device_wmp(
   EventQueueItem* __restrict__ queue)
 {
@@ -318,36 +315,24 @@ __global__ void  process_calculate_xs_events_device_wmp(
   const unsigned idx = queue[tid].idx;
   const double E = __ldg(&queue[tid].E); // is ldg actually doing much for us here?
   const int mat_idx = __ldg(&queue[tid].material);
-  double cutoff; // used only for pre-collision. Compiler will eliminate otherwise
-  double prob; // ^^^^^
   Particle p(idx);
 
-  // Store pre-collision particle properties
-  // TODO potentially remove this stuff???
-  // In fact, do we even need this at all for the purposes of what I hope to achieve?
-  if constexpr (!ForCollision) {
-    p.wgt_last() = p.wgt();
-    p.E_last() = E;
-    p.u_last() = p.u();
-    p.r_last() = p.r();
+  uint64_t seed = *p.current_seed();
 
-    // Reset event variables
-    p.event() = TallyEvent::KILL;
-    p.event_nuclide() = NUCLIDE_NONE;
-    p.event_mt() = REACTION_NONE;
 
-    // TODO potentially put this on teh stack (also advantageous
-    // for implementation of cache-free collisions)
-    p.macro_xs().total = 0.0;
-    p.macro_xs().neutron.absorption = 0.0;
-    p.macro_xs().neutron.fission = 0.0;
-    p.macro_xs().neutron.nu_fission = 0.0;
-  } else {
-    cutoff = prn(p.current_seed()) * p.macro_xs().total;
-    prob = 0.0;
-    p.event_nuclide() = 0; // floating point issue protection (maybe remove?)
-  }
+  // Reset event variables
+  //p.event() = TallyEvent::KILL;
+  //p.event_mt() = REACTION_NONE;
+  
+  // TODO potentially put this on teh stack (also advantageous
+  // for implementation of cache-free collisions)
+  p.macro_xs().total = 0.0;
+  p.macro_xs().neutron.absorption = 0.0;
+  p.macro_xs().neutron.fission = 0.0;
+  p.macro_xs().neutron.nu_fission = 0.0;
 
+  // Used for normalization-free collision nuclide sampling
+  double max_path_length = 0.0;
 
   Material const& m = *materials[mat_idx];
 
@@ -367,11 +352,6 @@ __global__ void  process_calculate_xs_events_device_wmp(
 
     // Continue through material until we reach the
     int i_nuclide = m.mat_nuclide_index_[i]; // material's nuclide index
-    if constexpr (ForCollision) {
-      // Check if we are done finding the collision nuclide, but still
-      // need to hit the syncthreads below to avoid locking.
-      if (cutoff == 1e9) i_nuclide = -1;
-    }
 
     if (i_nuclide != -1) { // if global nuclide index present in material, enter this block
 
@@ -543,7 +523,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
 
           // Find the appropriate temperature index. why would someone use
           // nearest?
-          xsfloat kT = p.sqrtkT() * p.sqrtkT();
+          xsfloat kT = ::pow(p.sqrtkT(), 2);
 
           switch (gpu::temperature_method) {
           case TemperatureMethod::NEAREST: {
@@ -567,7 +547,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
             // Randomly sample between temperature i and i+1
             micro.interp_factor = (kT - nuclide.kTs_[micro.index_temp]) /
                 (nuclide.kTs_[micro.index_temp + 1] - nuclide.kTs_[micro.index_temp]);
-            if (micro.interp_factor > prn(p.current_seed()))
+            if (micro.interp_factor > prn(&seed))
               ++micro.index_temp;
             break;
           }
@@ -622,7 +602,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
             xsfloat elastic;
             // TODO cache sqrtkT earlier on the stack? Used to use micro.last_sqrtkT here.
             gpu::thermal_scatt[micro.index_sab]->calculate_xs(E, p.sqrtkT(),
-              &i_temp, &elastic, &inelastic, p.current_seed());
+              &i_temp, &elastic, &inelastic, &seed);
             thermal = micro.sab_frac * (elastic + inelastic);
             micro.thermal = thermal;
             micro.thermal_elastic = micro.sab_frac * elastic;
@@ -780,57 +760,55 @@ __global__ void  process_calculate_xs_events_device_wmp(
         }
       }
 
-      // TODO remove reference here probably
-      double const& atom_density = m.atom_density_[i_nuclide];
-      if constexpr (!ForCollision) {
-        if constexpr (UseMicroCache) {
-          p.macro_xs().total += atom_density * use_micro->total;
-          p.macro_xs().neutron.absorption += atom_density * use_micro->absorption;
-          p.macro_xs().neutron.fission += atom_density * use_micro->fission;
-          p.macro_xs().neutron.nu_fission += atom_density * use_micro->nu_fission;
-          if (use_micro != micro_ref) {
-            *micro_ref = micro; // save stack variable back to global memory
-          }
-        } else {
-          p.macro_xs().total += atom_density * micro.total;
-          p.macro_xs().neutron.absorption += atom_density * micro.absorption;
-          p.macro_xs().neutron.fission += atom_density * micro.fission;
-          p.macro_xs().neutron.nu_fission += atom_density * micro.nu_fission;
+      double const & atom_density = m.atom_density_[i_nuclide];
+      double pathlength;
+      if constexpr (UseMicroCache) {
+	pathlength = atom_density * use_micro->total / (-::log(prn(&seed)));
+        p.macro_xs().total += atom_density * use_micro->total;
+        p.macro_xs().neutron.absorption += atom_density * use_micro->absorption;
+        p.macro_xs().neutron.fission += atom_density * use_micro->fission;
+        p.macro_xs().neutron.nu_fission += atom_density * use_micro->nu_fission;
+        if (use_micro != micro_ref) {
+          *micro_ref = micro; // save stack variable back to global memory
         }
-      } else { // ForCollision
-        prob += atom_density * micro.total;
-        if (prob >= cutoff) {
-          p.event_nuclide() = i; // TODO can remove this..
-          // TODO make this not suck!
-          NuclideMicroXS onstack;
-          onstack.index_sab = micro.index_sab;
-          onstack.index_temp = micro.index_temp;
-          onstack.index_temp_sab = micro.index_temp_sab;
-          onstack.index_grid = micro.index_grid;
-          onstack.sab_frac = micro.sab_frac;
-          onstack.total = micro.total;
-          onstack.elastic = micro.elastic;
-          onstack.absorption = micro.absorption;
-          onstack.fission = micro.fission;
-          onstack.nu_fission = micro.nu_fission;
-          onstack.interp_factor = micro.interp_factor;
-          onstack.use_ptable = micro.use_ptable;
-          onstack.thermal = micro.thermal;
-          onstack.thermal_elastic = micro.thermal_elastic;
-          p.neutron_xs(0) = onstack;
-          cutoff = 1e9; // prevent any more updates
-          queue[tid].material = i; // for sorting collision nuclide
-        }
+      } else {
+	pathlength = -atom_density * micro.total / (::log(prn(&seed)));
+        p.macro_xs().total += atom_density * micro.total;
+        p.macro_xs().neutron.absorption += atom_density * micro.absorption;
+        p.macro_xs().neutron.fission += atom_density * micro.fission;
+        p.macro_xs().neutron.nu_fission += atom_density * micro.nu_fission;
+      }
+
+      // If collision nuclide is selected
+      if (pathlength > max_path_length) {
+        max_path_length = pathlength;
+        p.event_nuclide() = i; // TODO can remove this..
+			       //
+        // TODO make this not suck?
+        NuclideMicroXS onstack;
+        onstack.index_sab = micro.index_sab;
+        onstack.index_temp = micro.index_temp;
+        onstack.index_temp_sab = micro.index_temp_sab;
+        onstack.index_grid = micro.index_grid;
+        onstack.sab_frac = micro.sab_frac;
+        onstack.total = micro.total;
+        onstack.elastic = micro.elastic;
+        onstack.absorption = micro.absorption;
+        onstack.fission = micro.fission;
+        onstack.nu_fission = micro.nu_fission;
+        onstack.interp_factor = micro.interp_factor;
+        onstack.use_ptable = micro.use_ptable;
+        onstack.thermal = micro.thermal;
+        onstack.thermal_elastic = micro.thermal_elastic;
+        p.neutron_xs(0) = onstack;
+        // queue[tid].material = i; // for sorting collision nuclide
       }
     }
     __syncwarp();
   }
-  if constexpr (ForCollision) {
-    if (cutoff != 1e9) {
-      printf("Failed to sample a collision nuclide!!");
-      __trap();
-    }
-  }
+
+  // Push it back into global, was in a register
+  *p.current_seed() = seed;
 }
 
 }
