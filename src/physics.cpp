@@ -783,6 +783,17 @@ HD void scatter(Particle& p, int i_nuclide)
     int i = 0;
 
     while (prob < cutoff) {
+      // Handles  roundoff case
+      if (j == nuc->index_inelastic_scatter_.size()) {
+	    xsfloat kT = nuc->multipole_ ? p.sqrtkT() * p.sqrtkT() : nuc->kTs_[i_temp];
+
+	    // Perform collision physics for elastic scattering
+	    elastic_scatter(i_nuclide, *nuc->reactions_[0], kT, p);
+
+	    p.event_mt() = ELASTIC;
+	    sampled = true;
+	    break;
+      }
       i = nuc->index_inelastic_scatter_[j];
       ++j;
 
@@ -807,9 +818,11 @@ HD void scatter(Particle& p, int i_nuclide)
     }
 
     // Perform collision physics for inelastic scattering
-    const auto& rx {nuc->reactions_[i]};
-    inelastic_scatter(*nuc, *rx, p);
-    p.event_mt() = rx->mt_;
+    if (!sampled) {
+      const auto& rx {nuc->reactions_[i]};
+      inelastic_scatter(*nuc, *rx, p);
+      p.event_mt() = rx->mt_;
+    }
   }
 
   // Set event component
