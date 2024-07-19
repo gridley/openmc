@@ -291,15 +291,15 @@ struct NuclideMicroXSDummy<false> {
   int index_temp {-1};
   int index_temp_sab {-1};
   int index_grid {-1};
-  double sab_frac {0.0};
-  double total {0.0};
-  double elastic {0.0};
-  double absorption {0.0};
-  double fission {0.0};
-  double nu_fission {0.0};
-  double interp_factor {0.0};
-  double thermal {0.0};
-  double thermal_elastic {0.0};
+  xsfloat sab_frac {0.0};
+  xsfloat total {0.0};
+  xsfloat elastic {0.0};
+  xsfloat absorption {0.0};
+  xsfloat fission {0.0};
+  xsfloat nu_fission {0.0};
+  xsfloat interp_factor {0.0};
+  xsfloat thermal {0.0};
+  xsfloat thermal_elastic {0.0};
   bool use_ptable {false}; // note: wasteful!
 };
 
@@ -316,7 +316,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
   using EmissionMode = ReactionProduct::EmissionMode;
   const unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   const unsigned idx = queue[tid].idx;
-  const double E = __ldg(&queue[tid].E); // is ldg actually doing much for us here?
+  const xsfloat E = __ldg(&queue[tid].E); // is ldg actually doing much for us here?
   const int mat_idx = __ldg(&queue[tid].material);
   double cutoff; // used only for pre-collision. Compiler will eliminate otherwise
   double prob; // ^^^^^
@@ -547,9 +547,9 @@ __global__ void  process_calculate_xs_events_device_wmp(
 
           switch (gpu::temperature_method) {
           case TemperatureMethod::NEAREST: {
-            double max_diff = INFTY;
+            xsfloat max_diff = INFTY;
             for (int t = 0; t < nuclide.kTs_.size(); ++t) {
-              double diff = std::abs(nuclide.kTs_[t] - kT);
+              xsfloat diff = std::abs(nuclide.kTs_[t] - kT);
               if (diff < max_diff) {
                 micro.index_temp = t;
                 max_diff = diff;
@@ -823,7 +823,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
         }
       }
     }
-    __syncwarp();
+    // __syncwarp();
   }
   if constexpr (ForCollision) {
     if (cutoff != 1e9) {
