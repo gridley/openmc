@@ -166,7 +166,7 @@ HD void sample_neutron_reaction(Particle& p)
   // If survival biasing is being used, the following subroutine adjusts the
   // weight of the particle. Otherwise, it checks to see if absorption occurs
 
-  if (p.neutron_xs(i_nuclide).absorption > 0.0) {
+  if (p.neutron_xs(0).absorption > 0.0) {
     absorption(p, i_nuclide);
   } else {
     p.wgt_absorb() = 0.0;
@@ -214,8 +214,8 @@ create_fission_sites(Particle& p, int i_nuclide, const Reaction& rx)
 #endif
 
   // Determine the expected number of neutrons produced
-  double nu_t = p.wgt() / keff * weight * p.neutron_xs(i_nuclide).nu_fission /
-                p.neutron_xs(i_nuclide).total;
+  double nu_t = p.wgt() / keff * weight * p.neutron_xs(0).nu_fission /
+                p.neutron_xs(0).total;
 
   // Sample the number of neutrons produced
   int nu = static_cast<int>(nu_t);
@@ -592,7 +592,7 @@ HD Reaction& sample_fission(int i_nuclide, Particle& p)
   // If we're in the URR, by default use the first fission reaction. We also
   // default to the first reaction if we know that there are no partial fission
   // reactions
-  if (p.neutron_xs(i_nuclide).use_ptable || !nuc->has_partial_fission_) {
+  if (p.neutron_xs(0).use_ptable || !nuc->has_partial_fission_) {
     return *nuc->fission_rx_[0];
   }
 
@@ -605,10 +605,10 @@ HD Reaction& sample_fission(int i_nuclide, Particle& p)
   }
 
   // Get grid index and interpolatoin factor and sample fission cdf
-  int i_temp = p.neutron_xs(i_nuclide).index_temp;
-  int i_grid = p.neutron_xs(i_nuclide).index_grid;
-  xsfloat f = p.neutron_xs(i_nuclide).interp_factor;
-  xsfloat cutoff = prn(p.current_seed()) * p.neutron_xs(i_nuclide).fission;
+  int i_temp = p.neutron_xs(0).index_temp;
+  int i_grid = p.neutron_xs(0).index_grid;
+  xsfloat f = p.neutron_xs(0).interp_factor;
+  xsfloat cutoff = prn(p.current_seed()) * p.neutron_xs(0).fission;
   double prob = 0.0;
 
   // Loop through each partial fission reaction type
@@ -638,10 +638,10 @@ HD Reaction& sample_fission(int i_nuclide, Particle& p)
 void sample_photon_product(int i_nuclide, Particle& p, int* i_rx, int* i_product)
 {
   // Get grid index and interpolation factor and sample photon production cdf
-  int i_temp = p.neutron_xs(i_nuclide).index_temp;
-  int i_grid = p.neutron_xs(i_nuclide).index_grid;
-  double f = p.neutron_xs(i_nuclide).interp_factor;
-  double cutoff = prn(p.current_seed()) * p.neutron_xs(i_nuclide).photon_prod;
+  int i_temp = p.neutron_xs(0).index_temp;
+  int i_grid = p.neutron_xs(0).index_grid;
+  double f = p.neutron_xs(0).interp_factor;
+  double cutoff = prn(p.current_seed()) * p.neutron_xs(0).photon_prod;
   double prob = 0.0;
 
   // Loop through each reaction type
@@ -692,8 +692,8 @@ HD void absorption(Particle& p, int i_nuclide)
 #endif
   if (survival_biasing) {
     // Determine weight absorbed in survival biasing
-    p.wgt_absorb() = p.wgt() * p.neutron_xs(i_nuclide).absorption /
-                     p.neutron_xs(i_nuclide).total;
+    p.wgt_absorb() = p.wgt() * p.neutron_xs(0).absorption /
+                     p.neutron_xs(0).total;
 
     // Adjust weight of particle by probability of absorption
     p.wgt() -= p.wgt_absorb();
@@ -701,17 +701,17 @@ HD void absorption(Particle& p, int i_nuclide)
 
     // Score implicit absorption estimate of keff
     p.keff_tally_absorption() += p.wgt_absorb() *
-                                 p.neutron_xs(i_nuclide).nu_fission /
-                                 p.neutron_xs(i_nuclide).absorption;
+                                 p.neutron_xs(0).nu_fission /
+                                 p.neutron_xs(0).absorption;
   } else {
     // See if disappearance reaction happens
-    if (p.neutron_xs(i_nuclide).absorption >
-        prn(p.current_seed()) * p.neutron_xs(i_nuclide).total) {
+    if (p.neutron_xs(0).absorption >
+        prn(p.current_seed()) * p.neutron_xs(0).total) {
 
       // Score absorption estimate of keff
       p.keff_tally_absorption() += p.wgt() *
-                                   p.neutron_xs(i_nuclide).nu_fission /
-                                   p.neutron_xs(i_nuclide).absorption;
+                                   p.neutron_xs(0).nu_fission /
+                                   p.neutron_xs(0).absorption;
 
       p.alive() = false;
       p.event() = TallyEvent::ABSORB;
@@ -734,7 +734,7 @@ HD void scatter(Particle& p, int i_nuclide)
 
   // Get pointer to nuclide and grid index/interpolation factor
   const auto& nuc {nuclides[i_nuclide]};
-  const auto& micro {p.neutron_xs(i_nuclide)};
+  const auto& micro {p.neutron_xs(0)};
   const int& i_temp = micro.index_temp;
   const int& i_grid = micro.index_grid;
   const auto& f = micro.interp_factor;
@@ -846,9 +846,9 @@ HD void elastic_scatter(
 
   // Sample velocity of target nucleus
   Direction v_t {};
-  if (!p.neutron_xs(i_nuclide).use_ptable) {
+  if (!p.neutron_xs(0).use_ptable) {
     v_t = sample_target_velocity(*nuc, p.E(), p.u(), v_n,
-      p.neutron_xs(i_nuclide).elastic, kT, p.current_seed());
+      p.neutron_xs(0).elastic, kT, p.current_seed());
   }
 
   // Velocity of center-of-mass
@@ -901,7 +901,7 @@ void sab_scatter(int i_nuclide, int i_sab, Particle& p)
   using data::thermal_scatt;
 #endif
   // Determine temperature index
-  const auto& micro {p.neutron_xs(i_nuclide)};
+  const auto& micro {p.neutron_xs(0)};
   int i_temp = micro.index_temp_sab;
 
   // Sample energy and angle
@@ -1266,7 +1266,7 @@ void sample_secondary_photons(Particle& p, int i_nuclide)
 {
   // Sample the number of photons produced
   double y_t =
-    p.neutron_xs(i_nuclide).photon_prod / p.neutron_xs(i_nuclide).total;
+    p.neutron_xs(0).photon_prod / p.neutron_xs(0).total;
   int y = static_cast<int>(y_t);
   if (prn(p.current_seed()) <= y_t - y) ++y;
 

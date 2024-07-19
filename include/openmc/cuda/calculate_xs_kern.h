@@ -760,7 +760,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
         }
       }
 
-      double const & atom_density = m.atom_density_[i_nuclide];
+      auto const & atom_density = m.atom_density_[i_nuclide];
       double pathlength;
       if constexpr (UseMicroCache) {
 	pathlength = atom_density * use_micro->total / (-::log(prn(&seed)));
