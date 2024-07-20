@@ -19,7 +19,7 @@ __global__ void process_surface_crossing_events_device(
 
     // TODO TODO TODO TODO why not revive from secondaries here???
     // Replace with revival from secondaries eventually
-    p.n_event()++;
+    // p.n_event()++;
 
     // These are used as booleans here, but are converted to indices shortly.
     if (p.alive() && (p.material() == MATERIAL_VOID ||

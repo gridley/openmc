@@ -10,7 +10,7 @@ __global__ void process_death_events_device(unsigned n_particles)
 {
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   // Particle p(tid);
-  Particle& p = particles[p_idx];
+  Particle& p = particles[tid];
   if (tid < n_particles)
     p.event_death();
 }

@@ -48,32 +48,32 @@ void
 SphericalHarmonicsFilter::get_all_bins(const Particle& p, TallyEstimator estimator,
                                        FilterMatch& match) const
 {
-  // Determine cosine term for scatter expansion if necessary
-  vector<double> wgt(order_ + 1);
-  if (cosine_ == SphericalHarmonicsCosine::scatter) {
-    calc_pn_c(order_, p.mu(), wgt.data());
-  } else {
-    for (int i = 0; i < order_ + 1; i++) {
-      wgt[i] = 1;
-    }
-  }
-
-  // Find the Rn,m values
-  vector<double> rn(n_bins_);
-  calc_rn(order_, p.u_last(), rn.data());
-
-  int j = 0;
-  for (int n = 0; n < order_ + 1; n++) {
-    // Calculate n-th order spherical harmonics for (u,v,w)
-    int num_nm = 2*n + 1;
-
-    // Append the matching (bin,weight) for each moment
-    for (int i = 0; i < num_nm; i++) {
-      match.weights_.push_back(wgt[n] * rn[j]);
-      match.bins_.push_back(j);
-      ++j;
-    }
-  }
+//  // Determine cosine term for scatter expansion if necessary
+//  vector<double> wgt(order_ + 1);
+//  if (cosine_ == SphericalHarmonicsCosine::scatter) {
+//    calc_pn_c(order_, p.mu(), wgt.data());
+//  } else {
+//    for (int i = 0; i < order_ + 1; i++) {
+//      wgt[i] = 1;
+//    }
+//  }
+//
+//  // Find the Rn,m values
+//  vector<double> rn(n_bins_);
+//  calc_rn(order_, p.u_last(), rn.data());
+//
+//  int j = 0;
+//  for (int n = 0; n < order_ + 1; n++) {
+//    // Calculate n-th order spherical harmonics for (u,v,w)
+//    int num_nm = 2*n + 1;
+//
+//    // Append the matching (bin,weight) for each moment
+//    for (int i = 0; i < num_nm; i++) {
+//      match.weights_.push_back(wgt[n] * rn[j]);
+//      match.bins_.push_back(j);
+//      ++j;
+//    }
+//  }
 }
 
 void

@@ -321,16 +321,12 @@ __global__ void  process_calculate_xs_events_device_wmp(
   double cutoff; // used only for pre-collision. Compiler will eliminate otherwise
   double prob; // ^^^^^
   // Particle p(idx);
-  Particle& p = particles[p_idx];
+  Particle& p = particles[idx];
 
   // Store pre-collision particle properties
   // TODO potentially remove this stuff???
   // In fact, do we even need this at all for the purposes of what I hope to achieve?
   if constexpr (!ForCollision) {
-    p.wgt_last() = p.wgt();
-    p.E_last() = E;
-    p.u_last() = p.u();
-    p.r_last() = p.r();
 
     // Reset event variables
     p.event() = TallyEvent::KILL;
@@ -380,9 +376,9 @@ __global__ void  process_calculate_xs_events_device_wmp(
       NuclideMicroXSDummy<UseMicroCache> micro;
       // How to have conditionally present stack variable????
       // Probably a templated type. Nothing if false, NuclideMicroXS if true
-      if constexpr (UseMicroCache) {
-        static_assert(false);
-      }
+      // if constexpr (UseMicroCache) {
+      //   static_assert(false);
+      // }
 
       micro.index_sab = C_NONE;
       micro.sab_frac = 0.0;
@@ -818,7 +814,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
           onstack.use_ptable = micro.use_ptable;
           onstack.thermal = micro.thermal;
           onstack.thermal_elastic = micro.thermal_elastic;
-          p.neutron_xs = onstack;
+          p.neutron_xs() = onstack;
           cutoff = 1e9; // prevent any more updates
           queue[tid].material = i; // for sorting collision nuclide
         }

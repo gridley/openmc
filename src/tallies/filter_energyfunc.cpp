@@ -56,17 +56,17 @@ void
 EnergyFunctionFilter::get_all_bins(const Particle& p, TallyEstimator estimator,
                                    FilterMatch& match) const
 {
-  if (p.E_last() >= energy_.front() && p.E_last() <= energy_.back()) {
-    // Search for the incoming energy bin.
-    auto i = lower_bound_index(energy_.begin(), energy_.end(), p.E_last());
-
-    // Compute the interpolation factor between the nearest bins.
-    double f = (p.E_last() - energy_[i]) / (energy_[i + 1] - energy_[i]);
-
-    // Interpolate on the lin-lin grid.
-    match.bins_.push_back(0);
-    match.weights_.push_back((1-f) * y_[i] + f * y_[i+1]);
-  }
+//  if (0.0 >= energy_.front() && p.E_last() <= energy_.back()) {
+//    // Search for the incoming energy bin.
+//    auto i = lower_bound_index(energy_.begin(), energy_.end(), 0.0);
+//
+//    // Compute the interpolation factor between the nearest bins.
+//    double f = (0.0 - energy_[i]) / (energy_[i + 1] - energy_[i]);
+//
+//    // Interpolate on the lin-lin grid.
+//    match.bins_.push_back(0);
+//    match.weights_.push_back((1-f) * y_[i] + f * y_[i+1]);
+//  }
 }
 
 void

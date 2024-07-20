@@ -75,7 +75,7 @@ const
   } else {
 #endif
     // Get the pre-collision energy of the particle.
-    auto E = p.E_last();
+    auto E = 0.0;
 
     // Bin the energy.
     if (E >= bins_.front() && E <= bins_.back()) {

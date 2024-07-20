@@ -47,7 +47,7 @@ public:
 private:
   void compute_index_weight();
 
-  const Tally& tally_;
+  // const Tally& tally_;
 };
 
 //==============================================================================

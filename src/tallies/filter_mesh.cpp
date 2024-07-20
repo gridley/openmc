@@ -40,25 +40,25 @@ MeshFilter::get_all_bins(const Particle& p, TallyEstimator estimator, FilterMatc
 const
 {
 
-  Position last_r = p.r_last();
-  Position r = p.r();
-  Position u = p.u();
-
-  // apply translation if present
-  if (translated_) {
-    last_r -= translation();
-    r -= translation();
-  }
-
-  if (estimator != TallyEstimator::TRACKLENGTH) {
-    auto bin = model::meshes[mesh_]->get_bin(r);
-    if (bin >= 0) {
-      match.bins_.push_back(bin);
-      match.weights_.push_back(1.0);
-    }
-  } else {
-    model::meshes[mesh_]->bins_crossed(last_r, r, u, match.bins_, match.weights_);
-  }
+//  Position last_r = p.r_last();
+//  Position r = p.r();
+//  Position u = p.u();
+//
+//  // apply translation if present
+//  if (translated_) {
+//    last_r -= translation();
+//    r -= translation();
+//  }
+//
+//  if (estimator != TallyEstimator::TRACKLENGTH) {
+//    auto bin = model::meshes[mesh_]->get_bin(r);
+//    if (bin >= 0) {
+//      match.bins_.push_back(bin);
+//      match.weights_.push_back(1.0);
+//    }
+//  } else {
+//    model::meshes[mesh_]->bins_crossed(last_r, r, u, match.bins_, match.weights_);
+//  }
 }
 
 void

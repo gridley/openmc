@@ -32,7 +32,7 @@ ParticleData::ParticleData()
 {
   // Create and clear coordinate levels
   coord_.resize(model::n_coord_levels);
-  cell_last_.resize(model::n_coord_levels);
+  // cell_last_.resize(model::n_coord_levels);
   clear();
 
   zero_delayed_bank();
@@ -41,16 +41,18 @@ ParticleData::ParticleData()
   // event mode, we construct the particle once up front, so have to run this
   // even if the current batch is inactive.
   if (!model::active_tallies.empty() || settings::event_based) {
-    flux_derivs_.resize(model::tally_derivs.size());
-    zero_flux_derivs();
+    // flux_derivs_.resize(model::tally_derivs.size());
+    // zero_flux_derivs();
   }
 
   // Allocate space for tally filter matches
-  filter_matches_.resize(model::tally_filters.size());
+  // filter_matches_.resize(model::tally_filters.size());
 
   // Create microscopic cross section caches
   // neutron_xs_.resize(data::nuclides.size());
   // photon_xs_.resize(data::elements.size());
+  nu_bank_.reserve(100);
+  secondary_bank_.reserve(100);
 }
 
 } // namespace openmc

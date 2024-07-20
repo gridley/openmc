@@ -454,62 +454,62 @@ void PhotonInteraction::compton_doppler(xsfloat alpha, xsfloat mu,
 
 void PhotonInteraction::calculate_xs(Particle& p) const
 {
-  // Perform binary search on the element energy grid in order to determine
-  // which points to interpolate between
-  int n_grid = energy_.size();
-  xsfloat log_E = std::log(p.E());
-  int i_grid;
-  if (log_E <= energy_[0]) {
-    i_grid = 0;
-  } else if (log_E > energy_(n_grid - 1)) {
-    i_grid = n_grid - 2;
-  } else {
-    // We use upper_bound_index here because sometimes photons are created with
-    // energies that exactly match a grid point
-    i_grid = upper_bound_index(energy_.cbegin(), energy_.cend(), log_E);
-  }
-
-  // check for case where two energy points are the same
-  if (energy_(i_grid) == energy_(i_grid+1)) ++i_grid;
-
-  // calculate interpolation factor
-  xsfloat f = (log_E - energy_(i_grid)) / (energy_(i_grid+1) - energy_(i_grid));
-
-  auto& xs {p.photon_xs(index_)};
-  xs.index_grid = i_grid;
-  xs.interp_factor = f;
-
-  // Calculate microscopic coherent cross section
-  xs.coherent = std::exp(coherent_(i_grid) +
-    f*(coherent_(i_grid+1) - coherent_(i_grid)));
-
-  // Calculate microscopic incoherent cross section
-  xs.incoherent = std::exp(incoherent_(i_grid) +
-    f*(incoherent_(i_grid+1) - incoherent_(i_grid)));
-
-  // Calculate microscopic photoelectric cross section
-  xs.photoelectric = 0.0;
-  for (const auto& shell : shells_) {
-    // Check threshold of reaction
-    int i_start = shell.threshold;
-    if (i_grid < i_start) continue;
-
-    // Evaluation subshell photoionization cross section
-    xs.photoelectric +=
-      std::exp(shell.cross_section(i_grid-i_start) +
-      f*(shell.cross_section(i_grid+1-i_start) -
-      shell.cross_section(i_grid-i_start)));
-  }
-
-  // Calculate microscopic pair production cross section
-  xs.pair_production = std::exp(
-    pair_production_total_(i_grid) + f*(
-    pair_production_total_(i_grid+1) -
-    pair_production_total_(i_grid)));
-
-  // Calculate microscopic total cross section
-  xs.total = xs.coherent + xs.incoherent + xs.photoelectric + xs.pair_production;
-  xs.last_E = p.E();
+//   // Perform binary search on the element energy grid in order to determine
+//   // which points to interpolate between
+//   int n_grid = energy_.size();
+//   xsfloat log_E = std::log(p.E());
+//   int i_grid;
+//   if (log_E <= energy_[0]) {
+//     i_grid = 0;
+//   } else if (log_E > energy_(n_grid - 1)) {
+//     i_grid = n_grid - 2;
+//   } else {
+//     // We use upper_bound_index here because sometimes photons are created with
+//     // energies that exactly match a grid point
+//     i_grid = upper_bound_index(energy_.cbegin(), energy_.cend(), log_E);
+//   }
+// 
+//   // check for case where two energy points are the same
+//   if (energy_(i_grid) == energy_(i_grid+1)) ++i_grid;
+// 
+//   // calculate interpolation factor
+//   xsfloat f = (log_E - energy_(i_grid)) / (energy_(i_grid+1) - energy_(i_grid));
+// 
+//   auto& xs {p.photon_xs(index_)};
+//   xs.index_grid = i_grid;
+//   xs.interp_factor = f;
+// 
+//   // Calculate microscopic coherent cross section
+//   xs.coherent = std::exp(coherent_(i_grid) +
+//     f*(coherent_(i_grid+1) - coherent_(i_grid)));
+// 
+//   // Calculate microscopic incoherent cross section
+//   xs.incoherent = std::exp(incoherent_(i_grid) +
+//     f*(incoherent_(i_grid+1) - incoherent_(i_grid)));
+// 
+//   // Calculate microscopic photoelectric cross section
+//   xs.photoelectric = 0.0;
+//   for (const auto& shell : shells_) {
+//     // Check threshold of reaction
+//     int i_start = shell.threshold;
+//     if (i_grid < i_start) continue;
+// 
+//     // Evaluation subshell photoionization cross section
+//     xs.photoelectric +=
+//       std::exp(shell.cross_section(i_grid-i_start) +
+//       f*(shell.cross_section(i_grid+1-i_start) -
+//       shell.cross_section(i_grid-i_start)));
+//   }
+// 
+//   // Calculate microscopic pair production cross section
+//   xs.pair_production = std::exp(
+//     pair_production_total_(i_grid) + f*(
+//     pair_production_total_(i_grid+1) -
+//     pair_production_total_(i_grid)));
+// 
+//   // Calculate microscopic total cross section
+//   xs.total = xs.coherent + xs.incoherent + xs.photoelectric + xs.pair_production;
+//   xs.last_E = p.E();
 }
 
 xsfloat PhotonInteraction::rayleigh_scatter(xsfloat alpha, uint64_t* seed) const

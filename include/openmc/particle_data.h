@@ -213,7 +213,7 @@ public:
   // specified next to the variables below, this doesn't
   // have to do anything. In structure-of-array mode, though,
   // we have to explicitly set things.
-  void initialize_values() {}
+  HD void initialize_values() {}
 
 private:
   //==========================================================================
@@ -304,28 +304,28 @@ public:
   //==========================================================================
   // Methods and accessors
 
-  MacroXS& macro_xs() { return macro_xs_; }
-  const MacroXS& macro_xs() const { return macro_xs_; }
+  HD MacroXS& macro_xs() { return macro_xs_; }
+  HD const MacroXS& macro_xs() const { return macro_xs_; }
 
-  int64_t& id() { return id_; }
-  const int64_t& id() const { return id_; }
-  ParticleType& type() { return type_; }
-  const ParticleType& type() const { return type_; }
+  HD int64_t& id() { return id_; }
+  HD const int64_t& id() const { return id_; }
+  HD ParticleType& type() { return type_; }
+  HD const ParticleType& type() const { return type_; }
 
-  int& n_coord() { return n_coord_; }
-  const int& n_coord() const { return n_coord_; }
-  int& cell_instance() { return cell_instance_; }
-  const int& cell_instance() const { return cell_instance_; }
-  LocalCoord& coord(int i) { return coord_[i]; }
-  const LocalCoord& coord(int i) const { return coord_[i]; }
+  HD int& n_coord() { return n_coord_; }
+  HD const int& n_coord() const { return n_coord_; }
+  HD int& cell_instance() { return cell_instance_; }
+  HD const int& cell_instance() const { return cell_instance_; }
+  HD LocalCoord& coord(int i) { return coord_[i]; }
+  HD const LocalCoord& coord(int i) const { return coord_[i]; }
 
   // int& n_coord_last() { return n_coord_last_; }
   // const int& n_coord_last() const { return n_coord_last_; }
   // int& cell_last(int i) { return cell_last_[i]; }
   // const int& cell_last(int i) const { return cell_last_[i]; }
 
-  xsfloat& E() { return E_; }
-  const xsfloat& E() const { return E_; }
+  HD xsfloat& E() { return E_; }
+  HD const xsfloat& E() const { return E_; }
   // xsfloat& E_last() { return E_last_; }
   // const xsfloat& E_last() const { return E_last_; }
   // int& g() { return g_; }
@@ -333,10 +333,8 @@ public:
   // int& g_last() { return g_last_; }
   // const int& g_last() const { return g_last_; }
 
-  double& wgt() { return wgt_; }
-  xsfloat& mu() { return mu_; }
-  const xsfloat& mu() const { return mu_; }
-  bool& alive() { return alive_; }
+  HD double& wgt() { return wgt_; }
+  HD bool& alive() { return alive_; }
 
   // Position& r_last_current() { return r_last_current_; }
   // const Position& r_last_current() const { return r_last_current_; }
@@ -346,153 +344,134 @@ public:
   // const Position& u_last() const { return u_last_; }
   // double& wgt_last() { return wgt_last_; }
   // const double& wgt_last() const { return wgt_last_; }
-  double& wgt_absorb() { return wgt_absorb_; }
-  const double& wgt_absorb() const { return wgt_absorb_; }
 
-  bool& fission() { return fission_; }
-  TallyEvent& event() { return event_; }
-  const TallyEvent& event() const { return event_; }
-  int& event_nuclide() { return event_nuclide_; }
-  const int& event_nuclide() const { return event_nuclide_; }
-  int& event_mt() { return event_mt_; }
-  int& delayed_group() { return delayed_group_; }
+  HD bool& fission() { return fission_; }
+  HD TallyEvent& event() { return event_; }
+  HD const TallyEvent& event() const { return event_; }
+  HD int& event_nuclide() { return event_nuclide_; }
+  HD const int& event_nuclide() const { return event_nuclide_; }
+  HD int& event_mt() { return event_mt_; }
+  HD int& delayed_group() { return delayed_group_; }
 
-  int& n_bank() { return n_bank_; }
-  int& n_bank_second() { return n_bank_second_; }
-  double& wgt_bank() { return wgt_bank_; }
-  int* n_delayed_bank() { return n_delayed_bank_; }
-  int& n_delayed_bank(int i) { return n_delayed_bank_[i]; }
+  HD int& n_bank() { return n_bank_; }
+  HD int& n_bank_second() { return n_bank_second_; }
+  HD double& wgt_bank() { return wgt_bank_; }
+  HD int* n_delayed_bank() { return n_delayed_bank_; }
+  HD int& n_delayed_bank(int i) { return n_delayed_bank_[i]; }
 
-  int& surface() { return surface_; }
-  const int& surface() const { return surface_; }
+  HD int& surface() { return surface_; }
+  HD const int& surface() const { return surface_; }
   // int& cell_born() { return cell_born_; }
   // const int& cell_born() const { return cell_born_; }
-  int& material() { return material_; }
-  const int& material() const { return material_; }
+  HD int& material() { return material_; }
+  HD const int& material() const { return material_; }
   // int& material_last() { return material_last_; }
 
-  BoundaryInfo& boundary() { return boundary_; }
+  HD BoundaryInfo& boundary() { return boundary_; }
 
-  xsfloat& sqrtkT() { return sqrtkT_; }
-  const xsfloat& sqrtkT() const { return sqrtkT_; }
+  HD xsfloat& sqrtkT() { return sqrtkT_; }
+  HD const xsfloat& sqrtkT() const { return sqrtkT_; }
   // xsfloat& sqrtkT_last() { return sqrtkT_last_; }
 
-  int& n_collision() { return n_collision_; }
-  const int& n_collision() const { return n_collision_; }
+  HD int& n_collision() { return n_collision_; }
+  HD const int& n_collision() const { return n_collision_; }
 
-  bool& write_track() { return write_track_; }
-  uint64_t& seeds(int i) { return seeds_[i]; }
-  uint64_t* seeds() { return seeds_; }
-  int& stream() { return stream_; }
+  HD bool& write_track() { return write_track_; }
+  HD uint64_t& seeds(int i) { return seeds_[i]; }
+  HD uint64_t* seeds() { return seeds_; }
+  HD int& stream() { return stream_; }
 
-  SourceSite& secondary_bank(int i) { return secondary_bank_[i]; }
-  decltype(secondary_bank_)& secondary_bank() { return secondary_bank_; }
-  int64_t& current_work() { return current_work_; }
-  const int64_t& current_work() const { return current_work_; }
-  double& flux_derivs(int i) { return flux_derivs_[i]; }
-  const double& flux_derivs(int i) const { return flux_derivs_[i]; }
+  HD SourceSite& secondary_bank(int i) { return secondary_bank_[i]; }
+  HD decltype(secondary_bank_)& secondary_bank() { return secondary_bank_; }
+  HD int64_t& current_work() { return current_work_; }
+  HD const int64_t& current_work() const { return current_work_; }
   // decltype(filter_matches_)& filter_matches() { return filter_matches_; }
-  auto* filter_matches() { return filter_matches_.data(); }
-  FilterMatch& filter_matches(int i) { return filter_matches_[i]; }
-  decltype(tracks_)& tracks() { return tracks_; }
-  decltype(nu_bank_)& nu_bank() { return nu_bank_; }
-  NuBank& nu_bank(int i) { return nu_bank_[i]; }
+  HD decltype(nu_bank_)& nu_bank() { return nu_bank_; }
+  HD NuBank& nu_bank(int i) { return nu_bank_[i]; }
 
-  double& keff_tally_absorption() { return keff_tally_absorption_; }
-  double& keff_tally_collision() { return keff_tally_collision_; }
-  double& keff_tally_tracklength() { return keff_tally_tracklength_; }
-  double& keff_tally_leakage() { return keff_tally_leakage_; }
+  HD double& keff_tally_absorption() { return keff_tally_absorption_; }
+  HD double& keff_tally_collision() { return keff_tally_collision_; }
+  HD double& keff_tally_tracklength() { return keff_tally_tracklength_; }
+  HD double& keff_tally_leakage() { return keff_tally_leakage_; }
 
-  NuclideMicroXS& neutron_xs() { return neutron_xs_; }
-  NuclideMicroXS const& neutron_xs() const { return neutron_xs_; }
+  HD NuclideMicroXS& neutron_xs() { return neutron_xs_; }
+  HD NuclideMicroXS const& neutron_xs() const { return neutron_xs_; }
 
-  bool& trace() { return false; }
-  double& collision_distance() { return collision_distance_; }
-  int& n_event() { return n_event_; }
+  HD bool trace() { return false; }
+  HD double& collision_distance() { return collision_distance_; }
 
 #ifdef DAGMC
   moab::DagMC::RayHistory& history() { return history_; }
   Direction& last_dir() { return last_dir_; }
 #endif
 
-  int64_t& n_progeny() { return n_progeny_; }
+  HD int64_t& n_progeny() { return n_progeny_; }
 
   // Accessors for position in global coordinates
-  Position& r() { return coord_[0].r; }
-  const Position& r() const { return coord_[0].r; }
+  HD Position& r() { return coord_[0].r; }
+  HD const Position& r() const { return coord_[0].r; }
 
   // Accessors for position in local coordinates
-  Position& r_local() { return coord_[n_coord_ - 1].r; }
-  const Position& r_local() const { return coord_[n_coord_ - 1].r; }
+  HD Position& r_local() { return coord_[n_coord_ - 1].r; }
+  HD const Position& r_local() const { return coord_[n_coord_ - 1].r; }
 
   // Accessors for direction in global coordinates
-  Direction& u() { return coord_[0].u; }
-  const Direction& u() const { return coord_[0].u; }
+  HD Direction& u() { return coord_[0].u; }
+  HD const Direction& u() const { return coord_[0].u; }
 
   // Accessors for direction in local coordinates
-  Direction& u_local() { return coord_[n_coord_ - 1].u; }
-  const Direction& u_local() const { return coord_[n_coord_ - 1].u; }
+  HD Direction& u_local() { return coord_[n_coord_ - 1].u; }
+  HD const Direction& u_local() const { return coord_[n_coord_ - 1].u; }
 
   //! Gets the pointer to the particle's current PRN seed
-  uint64_t* current_seed() { return seeds_ + stream_; }
-  const uint64_t* current_seed() const { return seeds_ + stream_; }
+  HD uint64_t* current_seed() { return seeds_ + stream_; }
+  HD const uint64_t* current_seed() const { return seeds_ + stream_; }
 
   //! Force recalculation of neutron xs by setting last energy to zero
-  void invalidate_neutron_xs()
+  HD void invalidate_neutron_xs()
   {
     neutron_xs_.last_E = 0.0;
   }
 
   //! resets all coordinate levels for the particle
-  void clear()
+  HD void clear()
   {
     for (auto& level : coord_)
       level.reset();
     n_coord_ = 1;
   }
 
-  void zero_delayed_bank()
+  HD void zero_delayed_bank()
   {
     for (int& n : n_delayed_bank_) {
       n = 0;
     }
   }
 
-  void zero_flux_derivs()
-  {
-    for (double& d : flux_derivs_) {
-      d = 0;
-    }
-  }
 
   // These methods regarding the secondary bank are all trivial
   // here, but are more nontrivial in the SOA version.
-  void secondary_bank_emplace_back() { secondary_bank_.emplace_back(); }
-  SourceSite& secondary_bank_back() { return secondary_bank_.back(); }
-  bool secondary_bank_empty() { return secondary_bank_.empty(); }
-  void secondary_bank_pop_back() { return secondary_bank_.pop_back(); }
-  auto secondary_bank_end() { return secondary_bank_.end(); }
+  HD void secondary_bank_emplace_back() { secondary_bank_.emplace_back(); }
+  HD SourceSite& secondary_bank_back() { return secondary_bank_.back(); }
+  HD bool secondary_bank_empty() { return secondary_bank_.empty(); }
+  HD void secondary_bank_pop_back() { return secondary_bank_.pop_back(); }
+  HD auto secondary_bank_end() { return secondary_bank_.end(); }
 
-  void nu_bank_clear() { nu_bank_.clear(); }
+  HD void nu_bank_clear() { nu_bank_.clear(); }
 
-  void secondary_bank_push_back(SourceSite const& site)
+  HD void secondary_bank_push_back(SourceSite const& site)
   {
     secondary_bank_.push_back(site);
   }
 
-  typename decltype(secondary_bank_)::size_type secondary_bank_size()
+  HD typename decltype(secondary_bank_)::size_type secondary_bank_size()
   {
     return secondary_bank_.size();
   }
 
-  NuBank& nu_bank_back() { return nu_bank_.back(); }
-  void nu_bank_emplace_back() { nu_bank_.emplace_back(); }
+  HD NuBank& nu_bank_back() { return nu_bank_.back(); }
+  HD void nu_bank_emplace_back() { nu_bank_.emplace_back(); }
 
-  void reset_filter_matches()
-  {
-    for (auto& match : filter_matches_)
-      match.bins_present_ = false;
-  }
 };
 
 } // namespace openmc

@@ -13,6 +13,7 @@
 #include <fmt/core.h>
 #include "xtensor/xadapt.hpp"
 
+#include "openmc/event.h"
 #include "openmc/bank.h"
 #include "openmc/capi.h"
 #include "openmc/cell.h"
@@ -407,11 +408,10 @@ void initialize_source()
       // doing a structure-of-array particle data layout.
       // sample_external_source is able to use the pre-allocated
       // space here.
-      Particle* p = nullptr;
 #ifdef __CUDACC__
-      Particle this_part(j);
-      this_part.clear(); // required for find_cell calls
-      p = &this_part;
+      // Particle this_part(j);
+      Particle* p = &(simulation::particles[j]);
+      p->clear(); // required for find_cell calls
 #endif
 
       // initialize random number seed

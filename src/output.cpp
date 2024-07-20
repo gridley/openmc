@@ -200,7 +200,7 @@ void print_particle(Particle& p)
   if (settings::run_CE) {
     fmt::print("  Energy = {}\n", p.E());
   } else {
-    fmt::print("  Energy Group = {}\n", p.g());
+    // fmt::print("  Energy Group = {}\n", p.g());
   }
   fmt::print("  Delayed Group = {}\n\n", p.delayed_group());
 }

@@ -10,7 +10,7 @@ __global__ void scan_for_dead_particles(unsigned n_particles)
 {
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   // Particle p(tid);
-  Particle& p = particles[p_idx];
+  Particle& p = particles[tid];
 
   if (tid < n_particles) {
     if (!p.alive()) {

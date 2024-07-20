@@ -55,7 +55,7 @@ void Particle::create_secondary(
 #ifdef __CUDA_ARCH__
   bank.E = E;
 #else
-  bank.E = settings::run_CE ? E : g();
+  // bank.E = settings::run_CE ? E : g();
 #endif
 
   n_bank_second() += 1;
@@ -67,25 +67,21 @@ void Particle::from_source(const SourceSite* src)
   clear();
   alive() = true;
   surface() = 0;
-  cell_born() = C_NONE;
+  // cell_born() = C_NONE;
   material() = C_NONE;
   n_collision() = 0;
   fission() = false;
-  zero_flux_derivs();
+  // zero_flux_derivs();
 
   // Copy attributes from source bank site
   type() = src->particle;
   wgt() = src->wgt;
-  wgt_last() = src->wgt;
   r() = src->r;
   u() = src->u;
-  r_last_current() = src->r;
-  r_last() = src->r;
-  u_last() = src->u;
 #ifndef __CUDACC__
   if (settings::run_CE) {
     E() = src->E;
-    g() = 0;
+    // g() = 0;
   } else {
     g() = static_cast<int>(src->E);
     g_last() = static_cast<int>(src->E);
@@ -93,9 +89,8 @@ void Particle::from_source(const SourceSite* src)
   }
 #else
   E() = src->E;
-  g() = 0;
+  // g() = 0;
 #endif
-  E_last() = E();
 }
 
 void Particle::event_calculate_xs()
@@ -104,10 +99,6 @@ void Particle::event_calculate_xs()
   stream() = STREAM_TRACKING;
 
   // Store pre-collision particle properties
-  wgt_last() = wgt();
-  E_last() = E();
-  u_last() = u();
-  r_last() = r();
 
   // Reset event variables
   event() = TallyEvent::KILL;
@@ -125,8 +116,8 @@ void Particle::event_calculate_xs()
     }
 
     // Set birth cell attribute
-    if (cell_born() == C_NONE)
-      cell_born() = coord(n_coord() - 1).cell;
+    // if (cell_born() == C_NONE)
+    //   cell_born() = coord(n_coord() - 1).cell;
   }
 
   // Write particle track.
@@ -138,12 +129,12 @@ void Particle::event_calculate_xs()
   // Calculate microscopic and macroscopic cross sections
   if (material() != MATERIAL_VOID) {
     if (settings::run_CE) {
-      if (material() != material_last() || sqrtkT() != sqrtkT_last()) {
+      // if (material() != material_last() || sqrtkT() != sqrtkT_last()) {
         // If the material is the same as the last material and the
         // temperature hasn't changed, we don't need to lookup cross
         // sections again.
-        model::materials[material()]->calculate_xs(*this);
-      }
+      model::materials[material()]->calculate_xs(*this);
+      // }
     } else {
       // Get the MG data; unlike the CE case above, we have to re-calculate
       // cross sections for every collision since the cross sections may
@@ -152,7 +143,7 @@ void Particle::event_calculate_xs()
       data::mg.macro_xs_[material()].calculate_xs(*this);
 
       // Update the particle's group while we know we are multi-group
-      g_last() = g();
+      // g_last() = g();
 #endif
     }
   } else {
@@ -210,10 +201,10 @@ Particle::event_cross_surface()
   n_coord() = boundary().coord_level;
 
   // Saving previous cell data
-  for (int j = 0; j < n_coord(); ++j) {
-    cell_last(j) = coord(j).cell;
-  }
-  n_coord_last() = n_coord();
+  // for (int j = 0; j < n_coord(); ++j) {
+  //   cell_last(j) = coord(j).cell;
+  // }
+  // n_coord_last() = n_coord();
 
   if (boundary().lattice_translation[0] != 0 ||
       boundary().lattice_translation[1] != 0 ||
@@ -299,11 +290,11 @@ Particle::event_collide()
   fission() = false;
 
   // Save coordinates for tallying purposes
-  r_last_current() = r();
+  // r_last_current() = r();
 
   // Set last material to none since cross sections will need to be
   // re-evaluated
-  material_last() = C_NONE;
+  // material_last() = C_NONE;
 
   // Set all directions to base level -- right now, after a collision, only
   // the base level directions are changed
@@ -329,16 +320,6 @@ void
 Particle::event_revive_from_secondary()
 {
   // If particle has too many events, display warning and kill it
-  ++n_event();
-  if (n_event() == MAX_EVENTS) {
-#ifdef __CUDA_ARCH__
-    __trap();
-#else
-    warning("Particle " + std::to_string(id()) +
-            " underwent maximum number of events.");
-    alive() = false;
-#endif
-  }
 
   // Check for secondary particles if this particle is dead
   if (!alive()) {
@@ -348,7 +329,6 @@ Particle::event_revive_from_secondary()
 
     from_source(&secondary_bank_back());
     secondary_bank_pop_back();
-    n_event() = 0;
 
     // Enter new particle in particle track file
 #ifndef __CUDA_ARCH__
@@ -413,7 +393,6 @@ Particle::event_death()
     progeny_per_particle[offset] = n_progeny();
   }
 
-  n_event() = 0;
 }
 
 
@@ -561,7 +540,7 @@ Particle::cross_reflective_bc(const Surface& surf, Direction new_u)
   u() = new_u;
 
   // Reassign particle's cell and surface
-  coord(0).cell = cell_last(n_coord_last() - 1);
+  // coord(0).cell = cell_last(n_coord_last() - 1);
   surface() = -surface();
 
   // If a reflective surface is coincident with a lattice or universe
@@ -582,7 +561,7 @@ Particle::cross_reflective_bc(const Surface& surf, Direction new_u)
 #endif
 
   // Set previous coordinate going slightly past surface crossing
-  r_last_current() = r() + TINY_BIT * u();
+  // r_last_current() = r() + TINY_BIT * u();
 
   // Diagnostic message
 #ifndef __CUDA_ARCH__
@@ -643,7 +622,7 @@ Particle::cross_periodic_bc(const Surface& surf, Position new_r,
   }
 
   // Set previous coordinate going slightly past surface crossing
-  r_last_current() = r() + TINY_BIT * u();
+  // r_last_current() = r() + TINY_BIT * u();
 
   // Diagnostic message
 #ifndef __CUDA_ARCH__

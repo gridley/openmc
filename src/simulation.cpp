@@ -572,7 +572,6 @@ void initialize_history(Particle& p, int64_t index_source)
   p.n_progeny() = 0;
 
   // Reset particle event counter
-  p.n_event() = 0;
 
   // set random number seed
   int64_t particle_seed =
@@ -580,14 +579,14 @@ void initialize_history(Particle& p, int64_t index_source)
   init_particle_seeds(particle_seed, p.seeds());
 
   // set particle trace
-  p.trace() = false;
+  // p.trace() = false;
 
 #ifndef __CUDACC__
   // Writing out particle tracks is simply not possible in CUDA
   if (simulation::current_batch == settings::trace_batch &&
       simulation::current_gen == settings::trace_gen &&
       p.id() == settings::trace_particle)
-    p.trace() = true;
+    // p.trace() = true;
 
   // Set particle track.
   p.write_track() = false;
@@ -603,9 +602,9 @@ void initialize_history(Particle& p, int64_t index_source)
     }
   }
   // Display message if high verbosity or trace is on
-  if (settings::verbosity >= 9 || p.trace()) {
-    write_message("Simulating Particle {}", p.id());
-  }
+  //if (settings::verbosity >= 9 || p.trace()) {
+  //  write_message("Simulating Particle {}", p.id());
+  //}
 #endif
 
   // Add paricle's starting weight to count for normalizing tallies later
@@ -630,9 +629,6 @@ void initialize_history(Particle& p, int64_t index_source)
       return;
     }
 
-    // Set birth cell attribute
-    if (p.cell_born() == C_NONE)
-      p.cell_born() = p.coord(p.n_coord() - 1).cell;
   }
 
   p.stream() = STREAM_TRACKING;

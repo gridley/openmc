@@ -132,17 +132,23 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 
   if (settings::temperature_multipole) {
     constexpr bool use_wmp = true;
-    if (gpu::micro_xs_caching)
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
-        queue.data()+n_remaining);
+    if (gpu::micro_xs_caching) {
+	    printf("as;ldfj;asiljg");
+	   exit(1);
+    }
+      // gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
+      //   queue.data()+n_remaining);
     else
       gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
         queue.data()+n_remaining);
   } else {
     constexpr bool use_wmp = false;
-    if (gpu::micro_xs_caching)
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
-        queue.data()+n_remaining);
+    if (gpu::micro_xs_caching) {
+	    printf("asdfasdfsgg");
+	    exit(1);
+    }
+      // gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
+      //   queue.data()+n_remaining);
     else
       gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
         queue.data()+n_remaining);

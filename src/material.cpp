@@ -839,7 +839,7 @@ void Material::calculate_neutron_xs(Particle& p) const
     int i_nuclide = nuclide_[i];
 
     // Calculate microscopic cross section for this nuclide
-    const auto& micro {p.neutron_xs};
+    const auto& micro {p.neutron_xs()};
     if (p.E() != micro.last_E || p.sqrtkT() != micro.last_sqrtkT ||
         i_sab != micro.index_sab || sab_frac != micro.sab_frac) {
       data::nuclides[i_nuclide]->calculate_xs(i_sab, i_grid, sab_frac, p);
@@ -861,38 +861,38 @@ void Material::calculate_neutron_xs(Particle& p) const
 
 void Material::calculate_photon_xs(Particle& p) const
 {
-  p.macro_xs().photon.coherent = 0.0;
-  p.macro_xs().photon.incoherent = 0.0;
-  p.macro_xs().photon.photoelectric = 0.0;
-  p.macro_xs().photon.pair_production = 0.0;
-
-  // Add contribution from each nuclide in material
-  for (int i = 0; i < nuclide_.size(); ++i) {
-    // ========================================================================
-    // CALCULATE MICROSCOPIC CROSS SECTION
-
-    // Determine microscopic cross sections for this nuclide
-    int i_element = element_[i];
-
-    // Calculate microscopic cross section for this nuclide
-    const auto& micro {p.photon_xs(i_element)};
-    if (p.E() != micro.last_E) {
-      data::elements[i_element]->calculate_xs(p);
-    }
-
-    // ========================================================================
-    // ADD TO MACROSCOPIC CROSS SECTION
-
-    // Copy atom density of nuclide in material
-    double const& atom_density = atom_density_[i];
-
-    // Add contributions to material macroscopic cross sections
-    p.macro_xs().total += atom_density * micro.total;
-    p.macro_xs().photon.coherent += atom_density * micro.coherent;
-    p.macro_xs().photon.incoherent += atom_density * micro.incoherent;
-    p.macro_xs().photon.photoelectric += atom_density * micro.photoelectric;
-    p.macro_xs().photon.pair_production += atom_density * micro.pair_production;
-  }
+//   p.macro_xs().photon.coherent = 0.0;
+//   p.macro_xs().photon.incoherent = 0.0;
+//   p.macro_xs().photon.photoelectric = 0.0;
+//   p.macro_xs().photon.pair_production = 0.0;
+// 
+//   // Add contribution from each nuclide in material
+//   for (int i = 0; i < nuclide_.size(); ++i) {
+//     // ========================================================================
+//     // CALCULATE MICROSCOPIC CROSS SECTION
+// 
+//     // Determine microscopic cross sections for this nuclide
+//     int i_element = element_[i];
+// 
+//     // Calculate microscopic cross section for this nuclide
+//     // const auto& micro {p.photon_xs(i_element)};
+//     // if (p.E() != micro.last_E) {
+//     //   data::elements[i_element]->calculate_xs(p);
+//     // }
+// 
+//     // ========================================================================
+//     // ADD TO MACROSCOPIC CROSS SECTION
+// 
+//     // Copy atom density of nuclide in material
+//     double const& atom_density = atom_density_[i];
+// 
+//     // Add contributions to material macroscopic cross sections
+//     p.macro_xs().total += atom_density * micro.total;
+//     p.macro_xs().photon.coherent += atom_density * micro.coherent;
+//     p.macro_xs().photon.incoherent += atom_density * micro.incoherent;
+//     p.macro_xs().photon.photoelectric += atom_density * micro.photoelectric;
+//     p.macro_xs().photon.pair_production += atom_density * micro.pair_production;
+//   }
 }
 
 void Material::set_id(int32_t id)

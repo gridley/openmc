@@ -15,7 +15,7 @@ __global__ void process_initialize_events_device(unsigned queue_size,
 {
   unsigned tid = threadIdx.x + blockDim.x * blockIdx.x;
   // Particle p(tid);
-  Particle& p = particles[p_idx];
+  Particle& p = particles[tid];
 
   if (tid < queue_size) {
     p.initialize_values();

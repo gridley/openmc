@@ -550,7 +550,7 @@ xsfloat Nuclide::nu(xsfloat E, EmissionMode mode, int group) const
 void Nuclide::calculate_elastic_xs(Particle& p) const
 {
   // Get temperature index, grid index, and interpolation factor
-  auto& micro {p.neutron_xs(index_)};
+  auto& micro {p.neutron_xs()};
   int i_temp = micro.index_temp;
   int i_grid = micro.index_grid;
   xsfloat f = micro.interp_factor;
@@ -586,7 +586,7 @@ xsfloat Nuclide::elastic_xs_0K(xsfloat E) const
 
 void Nuclide::calculate_xs(int i_sab, int i_log_union, double sab_frac, Particle& p)
 {
-  auto& micro {p.neutron_xs(index_)};
+  auto& micro {p.neutron_xs()};
 
   // Initialize cached cross sections to zero
   micro.elastic = CACHE_INVALID;
@@ -795,7 +795,7 @@ void Nuclide::calculate_xs(int i_sab, int i_log_union, double sab_frac, Particle
 
 void Nuclide::calculate_sab_xs(int i_sab, double sab_frac, Particle& p)
 {
-  auto& micro {p.neutron_xs(index_)};
+  auto& micro {p.neutron_xs()};
 
   // Set flag that S(a,b) treatment should be used for scattering
   micro.index_sab = i_sab;
@@ -825,7 +825,7 @@ void Nuclide::calculate_sab_xs(int i_sab, double sab_frac, Particle& p)
 
 void Nuclide::calculate_urr_xs(int i_temp, Particle& p) const
 {
-  auto& micro = p.neutron_xs(index_);
+  auto& micro = p.neutron_xs();
   micro.use_ptable = true;
 
   // Create a shorthand for the URR data

@@ -186,13 +186,11 @@ bool HD find_cell_inner(Particle& p, const NeighborList* neighbor_list)
       p.cell_instance() = offset;
 
       // Set the material and temperature.
-      p.material_last() = p.material();
       if (c.material_.size() > 1) {
         p.material() = c.material_[p.cell_instance()];
       } else {
         p.material() = c.material_[0];
       }
-      p.sqrtkT_last() = p.sqrtkT();
       if (c.sqrtkT_.size() > 1) {
         p.sqrtkT() = c.sqrtkT_[p.cell_instance()];
       } else {
