@@ -823,7 +823,7 @@ __global__ void  process_calculate_xs_events_device_wmp(
         }
       }
     }
-    // __syncwarp();
+    __syncwarp();
   }
   if constexpr (ForCollision) {
     if (cutoff != 1e9) {
