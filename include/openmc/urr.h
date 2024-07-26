@@ -16,48 +16,39 @@ namespace openmc {
 //! UrrData contains probability tables for the unresolved resonance range.
 //==============================================================================
 
-class UrrData {
+
+class ContinuousURRData {
 public:
-  // Since we access all of these at once, we want
-  // them contiguous in memory.
-  struct XSSet {
-    double total;
-    double elastic;
-    double fission;
-    double n_gamma;
-    double heating;
-  };
+  ContinuousURRData(const std::string& filename, gsl::index index);
 
-  Interpolation interp_;          //!< interpolation type
-  int inelastic_flag_;            //!< inelastic competition flag
-  int absorption_flag_;           //!< other absorption flag
-  bool multiply_smooth_;          //!< multiply by smooth cross section?
-
-  vector<double> energy_; //!< incident energies
-  auto n_energy() const { return energy_.size(); }
-
-  /* The row indexes correspond to the incident energy table, and column
-   * indices correspond to values of the CDF at that energy. For the CDF matrix
-   * below, obviously, values of the CDF are stored. For the xs_values
-   * variable, the columns line up with the index of cdf_values.
-   */
-  tensor<double, 2> cdf_values_; // Note: must be row major!
-  tensor<XSSet, 2> xs_values_;
-
-  // Number of points in the CDF
-  HD auto n_cdf() const { return cdf_values_.shape()[1]; }
-
-  //! \brief Load the URR data from the provided HDF5 group
-  explicit UrrData(hid_t group_id);
-
-  // Checks if any negative CDF or XS values are present
-  bool has_negative() const;
-
-  // Checks if the passed energy is within the bounds of the URR table
-  HD bool energy_in_bounds(double E) const
+  bool energy_in_bounds(double E) const
   {
     return energy_.front() < E && E < energy_.back();
   }
+
+  // This takes the actual value of energy as the first argument, the temperature
+  // index as the second, and the URR stream seed pointer as third. The temperature
+  // is passed as an index rather than a value because the temperature grid is shared
+  // across all nuclides.
+  void sample(double E, int i_T, uint64_t* seed, NuclideMicroXS& xs);
+
+private:
+  vector<double> energy_; //!< incident energies
+  bool has_fission_ {false};
+
+  tensor<double, 2> alpha;
+  tensor<double, 2> beta;
+  tensor<double, 2> mu;
+  tensor<double, 2> delta2;
+
+  // Conditional partial values
+  tensor<double, 2> nodes;
+  tensor<double, 2> weights;
+  tensor<double, 3> abs_values;
+  tensor<double, 3> fiss_values;
+
+  // Copy of the nuclide index for LCG stream reasons
+  gsl::index index_;
 };
 
 } // namespace openmc

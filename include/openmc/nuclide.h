@@ -122,8 +122,7 @@ public:
 
   // Unresolved resonance range information
   bool urr_present_ {false};
-  int urr_inelastic_ {C_NONE};
-  vector<UrrData> urr_data_;
+  ContinuousUrrData continuous_urr_;
 
   vector<unique_ptr<Reaction>> reactions_; //!< Reactions
   array<size_t, 902> reaction_index_;      //!< Index of each reaction

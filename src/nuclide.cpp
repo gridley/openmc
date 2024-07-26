@@ -218,51 +218,14 @@ Nuclide::Nuclide(hid_t group, const vector<xsfloat>& temperature)
   // Read unresolved resonance probability tables if present
   if (object_exists(group, "urr")) {
     urr_present_ = true;
-    urr_data_.reserve(temps_to_read.size());
-
-    for (int i = 0; i < temps_to_read.size(); i++) {
-      // Get temperature as a string
-      std::string temp_str {std::to_string(temps_to_read[i]) + "K"};
-
-      // Read probability tables for i-th temperature
-      hid_t urr_group = open_group(group, ("urr/" + temp_str).c_str());
-      urr_data_.emplace_back(urr_group);
-      close_group(urr_group);
-
-      // Check for negative values
-      if (urr_data_[i].has_negative() && mpi::master) {
-        warning("Negative value(s) found on probability table for nuclide " +
-                name_ + " at " + temp_str);
-      }
-    }
-
-    // If the inelastic competition flag indicates that the inelastic cross
-    // section should be determined from a normal reaction cross section, we
-    // need to get the index of the reaction.
-    if (temps_to_read.size() > 0) {
-      // Make sure inelastic flags are consistent for different temperatures
-      for (int i = 0; i < urr_data_.size() - 1; ++i) {
-        if (urr_data_[i].inelastic_flag_ != urr_data_[i+1].inelastic_flag_) {
-          fatal_error(fmt::format("URR inelastic flag is not consistent for "
-            "multiple temperatures in nuclide {}. This most likely indicates "
-            "a problem in how the data was processed.", name_));
-        }
-      }
-
-
-      if (urr_data_[0].inelastic_flag_ > 0) {
-        for (int i = 0; i < reactions_.size(); i++) {
-          if (reactions_[i]->mt_ == urr_data_[0].inelastic_flag_) {
-            urr_inelastic_ = i;
-          }
-        }
-
-        // Abort if no corresponding inelastic reaction was found
-        if (urr_inelastic_ == C_NONE) {
-          fatal_error("Could no find inelastic reaction specified on "
-                      "unresolved resonance probability table.");
-        }
-      }
+    // Look at this awesome coding practice.. listen, I just wanna graduate
+    std::string basepath = "/Users/gavin/Documents/ptable-fitting/final_tables/urr_hdf5/";
+    std::string ext = ".hdf5";
+    std::string fname = basepath + name_ + ext;
+    if (std::filesystem::exists(fname)) {
+      continuous_urr_ = std::move(ContinuousURRData(fname, index_));
+    } else {
+      warning("    Skipping URR for nuclide ^^");
     }
   }
 
