@@ -164,7 +164,8 @@ public:
 
     // Remove responsibity of the RHS for the memory it held
     move_from.begin_ = nullptr;
-    move_from.size_ = 0;
+    for (int i = 0; i < Rank; ++i)
+      move_from.size_[i] = 0;
     move_from.capacity_ = 0;
 
     return *this;

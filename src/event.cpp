@@ -136,20 +136,12 @@ void process_calculate_xs_events(SharedArray<EventQueueItem>& queue)
 
   if (settings::temperature_multipole) {
     constexpr bool use_wmp = true;
-    if (gpu::micro_xs_caching)
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
-        queue.data()+n_remaining);
-    else
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
-        queue.data()+n_remaining);
+    gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
+      queue.data()+n_remaining);
   } else {
     constexpr bool use_wmp = false;
-    if (gpu::micro_xs_caching)
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, true><<<n_blocks, n_threads>>>(
-        queue.data()+n_remaining);
-    else
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
-        queue.data()+n_remaining);
+    gpu::process_calculate_xs_events_device_wmp<use_wmp, false><<<n_blocks, n_threads>>>(
+      queue.data()+n_remaining);
   }
   cudaDeviceSynchronize();
   catchCudaErrors("process_calculate_xs_events_device");
@@ -268,18 +260,16 @@ void process_collision_events()
 
   // Now we need the collision nuclide to be calculated, which requires
   // an additional loop over XS when we known the macro XS
-  if (!gpu::micro_xs_caching) {
-    constexpr bool for_col = true;
-    constexpr bool micro_xs_caching = false;
-    if (settings::temperature_multipole) {
-      constexpr bool use_wmp = true;
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, micro_xs_caching, for_col><<<n_blocks, n_threads>>>(
-        simulation::collision_queue.data()+n_remaining);
-    } else {
-      constexpr bool use_wmp = false;
-      gpu::process_calculate_xs_events_device_wmp<use_wmp, micro_xs_caching, for_col><<<n_blocks, n_threads>>>(
-        simulation::collision_queue.data()+n_remaining);
-    }
+  constexpr bool for_col = true;
+  constexpr bool micro_xs_caching = false;
+  if (settings::temperature_multipole) {
+    constexpr bool use_wmp = true;
+    gpu::process_calculate_xs_events_device_wmp<use_wmp, micro_xs_caching, for_col><<<n_blocks, n_threads>>>(
+    simulation::collision_queue.data()+n_remaining);
+  } else {
+    constexpr bool use_wmp = false;
+    gpu::process_calculate_xs_events_device_wmp<use_wmp, micro_xs_caching, for_col><<<n_blocks, n_threads>>>(
+    simulation::collision_queue.data()+n_remaining);
   }
   cudaDeviceSynchronize();
   catchCudaErrors("pre_collision_xs_event");

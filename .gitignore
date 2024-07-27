@@ -116,3 +116,4 @@ CMakeSettings.json
 
 # Visual Studio Code configuration files
 .vscode/
+openmc

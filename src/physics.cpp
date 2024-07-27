@@ -571,7 +571,7 @@ HD Reaction& sample_fission(int i_nuclide, Particle& p)
   // If we're in the URR, by default use the first fission reaction. We also
   // default to the first reaction if we know that there are no partial fission
   // reactions
-  if (p.neutron_xs(i_nuclide).use_ptable || !nuc->has_partial_fission_) {
+  if (nuc->urr_present_ || !nuc->has_partial_fission_) {
     return *nuc->fission_rx_[0];
   }
 
@@ -824,11 +824,8 @@ HD void elastic_scatter(
   Direction v_n = vel*p.u();
 
   // Sample velocity of target nucleus
-  Direction v_t {};
-  if (!p.neutron_xs(i_nuclide).use_ptable) {
-    v_t = sample_target_velocity(*nuc, p.E(), p.u(), v_n,
-      p.neutron_xs(i_nuclide).elastic, kT, p.current_seed());
-  }
+  Direction v_t = sample_target_velocity(*nuc, p.E(), p.u(), v_n,
+    p.neutron_xs(i_nuclide).elastic, kT, p.current_seed());
 
   // Velocity of center-of-mass
   Direction v_cm = (v_n + awr*v_t)/(awr + 1.0);

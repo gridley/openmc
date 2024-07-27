@@ -105,7 +105,6 @@ struct NuclideMicroXS {
   int index_sab {-1};   //!< Index in sab_tables
   int index_temp_sab;   //!< Temperature index for sab_tables
   xsfloat sab_frac;      //!< Fraction of atoms affected by S(a,b)
-  bool use_ptable;      //!< In URR range with probability tables?
 
   // Energy and temperature last used to evaluate these cross sections.  If
   // these values have changed, then the cross sections must be re-evaluated.

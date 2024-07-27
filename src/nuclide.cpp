@@ -22,6 +22,7 @@
 
 #include <algorithm> // for sort, min_element
 #include <string> // for to_string, stoi
+#include <fstream>
 
 namespace openmc {
 
@@ -37,6 +38,11 @@ xsfloat temperature_max {0.0};
 std::unordered_map<std::string, int> nuclide_map;
 vector<unique_ptr<Nuclide>> nuclides;
 } // namespace data
+  //
+bool fileExists(const std::string& fileName) {
+    std::ifstream file(fileName);
+        return file.good();
+}
 
 //==============================================================================
 // Nuclide implementation
@@ -219,11 +225,12 @@ Nuclide::Nuclide(hid_t group, const vector<xsfloat>& temperature)
   if (object_exists(group, "urr")) {
     urr_present_ = true;
     // Look at this awesome coding practice.. listen, I just wanna graduate
-    std::string basepath = "/Users/gavin/Documents/ptable-fitting/final_tables/urr_hdf5/";
+    std::string basepath = "/home/ubuntu/openmc-requirements/urr_hdf5/";
     std::string ext = ".hdf5";
     std::string fname = basepath + name_ + ext;
-    if (std::filesystem::exists(fname)) {
-      continuous_urr_ = std::move(ContinuousURRData(fname, index_));
+    if (fileExists(fname)) {
+      // continuous_urr_ = std::move(ContinuousURRData(fname, index_));
+      continuous_urr_ = ContinuousURRData(fname, index_); // copy constructor, icky, but whatever
     } else {
       warning("    Skipping URR for nuclide ^^");
     }
@@ -734,23 +741,12 @@ void Nuclide::calculate_xs(int i_sab, int i_log_union, double sab_frac, Particle
   micro.index_sab = C_NONE;
   micro.sab_frac = 0.0;
 
-  // Initialize URR probability table treatment to false
-  micro.use_ptable = false;
-
   // If there is S(a,b) data for this nuclide, we need to set the sab_scatter
   // and sab_elastic cross sections and correct the total and elastic cross
   // sections.
 
   if (i_sab >= 0) this->calculate_sab_xs(i_sab, sab_frac, p);
 
-  // If the particle is in the unresolved resonance range and there are
-  // probability tables, we need to determine cross sections from the table
-  if (settings::urr_ptables_on && urr_present_ && !use_mp) {
-    int n = urr_data_[micro.index_temp].n_energy();
-    if (urr_data_[micro.index_temp].energy_in_bounds(p.E())) {
-      this->calculate_urr_xs(micro.index_temp, p);
-    }
-  }
 
   micro.last_E = p.E();
   micro.last_sqrtkT = p.sqrtkT();
@@ -786,137 +782,6 @@ void Nuclide::calculate_sab_xs(int i_sab, double sab_frac, Particle& p)
   micro.sab_frac = sab_frac;
 }
 
-void Nuclide::calculate_urr_xs(int i_temp, Particle& p) const
-{
-  auto& micro = p.neutron_xs(index_);
-  micro.use_ptable = true;
-
-  // Create a shorthand for the URR data
-  const auto& urr = urr_data_[i_temp];
-
-  // Determine the energy table
-  int i_energy = 0;
-  while (p.E() >= urr.energy_[i_energy + 1]) {
-    ++i_energy;
-  };
-
-  // Sample the probability table using the cumulative distribution
-
-  // Random numbers for the xs calculation are sampled from a separate stream.
-  // This guarantees the randomness and, at the same time, makes sure we
-  // reuse random numbers for the same nuclide at different temperatures,
-  // therefore preserving correlation of temperature in probability tables.
-  p.stream() = STREAM_URR_PTABLE;
-  double r = future_prn(static_cast<int64_t>(index_), *p.current_seed());
-  p.stream() = STREAM_TRACKING;
-
-  int i_low = 0;
-  while (urr.cdf_values_(i_energy, i_low) <= r) {
-    ++i_low;
-  };
-
-  int i_up = 0;
-  while (urr.cdf_values_(i_energy + 1, i_up) <= r) {
-    ++i_up;
-  };
-
-  // Determine elastic, fission, and capture cross sections from the
-  // probability table
-  xsfloat elastic = 0.;
-  xsfloat fission = 0.;
-  xsfloat capture = 0.;
-  xsfloat f;
-  if (urr.interp_ == Interpolation::lin_lin) {
-    // Determine the interpolation factor on the table
-    f = (p.E() - urr.energy_[i_energy]) /
-        (urr.energy_[i_energy + 1] - urr.energy_[i_energy]);
-
-    elastic = (1. - f) * urr.xs_values_(i_energy, i_low).elastic +
-              f * urr.xs_values_(i_energy + 1, i_up).elastic;
-    fission = (1. - f) * urr.xs_values_(i_energy, i_low).fission +
-              f * urr.xs_values_(i_energy + 1, i_up).fission;
-    capture = (1. - f) * urr.xs_values_(i_energy, i_low).n_gamma +
-              f * urr.xs_values_(i_energy + 1, i_up).n_gamma;
-  } else if (urr.interp_ == Interpolation::log_log) {
-    // Determine interpolation factor on the table
-    f = std::log(p.E() / urr.energy_[i_energy]) /
-        std::log(urr.energy_[i_energy + 1] / urr.energy_[i_energy]);
-
-    // Calculate the elastic cross section/factor
-    if ((urr.xs_values_(i_energy, i_low).elastic > 0.) &&
-        (urr.xs_values_(i_energy + 1, i_up).elastic > 0.)) {
-      elastic =
-        std::exp((1. - f) * std::log(urr.xs_values_(i_energy, i_low).elastic) +
-                 f * std::log(urr.xs_values_(i_energy + 1, i_up).elastic));
-    } else {
-      elastic = 0.;
-    }
-
-    // Calculate the fission cross section/factor
-    if ((urr.xs_values_(i_energy, i_low).fission > 0.) &&
-        (urr.xs_values_(i_energy + 1, i_up).fission > 0.)) {
-      fission =
-        std::exp((1. - f) * std::log(urr.xs_values_(i_energy, i_low).fission) +
-                 f * std::log(urr.xs_values_(i_energy + 1, i_up).fission));
-    } else {
-      fission = 0.;
-    }
-
-    // Calculate the capture cross section/factor
-    if ((urr.xs_values_(i_energy, i_low).n_gamma > 0.) &&
-        (urr.xs_values_(i_energy + 1, i_up).n_gamma > 0.)) {
-      capture =
-        std::exp((1. - f) * std::log(urr.xs_values_(i_energy, i_low).n_gamma) +
-                 f * std::log(urr.xs_values_(i_energy + 1, i_up).n_gamma));
-    } else {
-      capture = 0.;
-    }
-  }
-
-  // Determine the treatment of inelastic scattering
-  xsfloat inelastic = 0.;
-  if (urr.inelastic_flag_ != C_NONE) {
-    // get interpolation factor
-    f = micro.interp_factor;
-
-    // Determine inelastic scattering cross section
-    Reaction* rx = reactions_[urr_inelastic_].get();
-    int xs_index = micro.index_grid - rx->xs_[i_temp].threshold;
-    if (xs_index >= 0) {
-      inelastic = (1. - f) * rx->xs_[i_temp].value[xs_index] +
-           f * rx->xs_[i_temp].value[xs_index + 1];
-    }
-  }
-
-  // Multiply by smooth cross-section if needed
-  if (urr.multiply_smooth_) {
-    calculate_elastic_xs(p);
-    elastic *= micro.elastic;
-    capture *= (micro.absorption - micro.fission);
-    fission *= micro.fission;
-  }
-
-  // Check for negative values
-  if (elastic < 0.) {elastic = 0.;}
-  if (fission < 0.) {fission = 0.;}
-  if (capture < 0.) {capture = 0.;}
-
-  // Set elastic, absorption, fission, total, and capture x/s. Note that the
-  // total x/s is calculated as a sum of partials instead of the table-provided
-  // value
-  micro.elastic = elastic;
-  micro.absorption = capture + fission;
-  micro.fission = fission;
-  micro.total = elastic + inelastic + capture + fission;
-  // if (simulation::need_depletion_rx) {
-  //   micro.reaction[0] = capture;
-  // }
-
-  // Determine nu-fission cross-section
-  if (fissionable_) {
-    micro.nu_fission = nu(p.E(), EmissionMode::total) * micro.fission;
-  }
-}
 
 std::pair<gsl::index, xsfloat> Nuclide::find_temperature(xsfloat T) const
 {
