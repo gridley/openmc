@@ -123,6 +123,10 @@ HD void sample_neutron_reaction(Particle& p)
     // If we are not caching micros, the kernel call just before
     // this one was responsible for setting event_nuclide().
     i_nuclide = p.event_nuclide();
+    if (i_nuclide == -1) {
+	    i_nuclide = 0;
+	    p.event_nuclide() = 0;
+    }
   }
 
 
@@ -135,33 +139,8 @@ HD void sample_neutron_reaction(Particle& p)
 
   if (nuc->fissionable_) {
     auto& rx = sample_fission(i_nuclide, p);
-    // TODO make GPU work with event mode
-#ifdef __CUDA_ARCH__
     create_fission_sites(p, i_nuclide, rx);
-#else
-    if (settings::run_mode == RunMode::EIGENVALUE) {
-      create_fission_sites(p, i_nuclide, rx);
-    } else if (settings::run_mode == RunMode::FIXED_SOURCE &&
-      settings::create_fission_neutrons) {
-      create_fission_sites(p, i_nuclide, rx);
-
-      // Make sure particle population doesn't grow out of control for
-      // subcritical multiplication problems.
-      if (p.secondary_bank_size() >= 10000) {
-        fatal_error("The secondary particle bank appears to be growing without "
-        "bound. You are likely running a subcritical multiplication problem "
-        "with k-effective close to or greater than one.");
-      }
-    }
-#endif
   }
-
-  // Create secondary photons
-#ifndef __CUDACC__
-  if (settings::photon_transport) {
-    sample_secondary_photons(p, i_nuclide);
-  }
-#endif
 
   // If survival biasing is being used, the following subroutine adjusts the
   // weight of the particle. Otherwise, it checks to see if absorption occurs
@@ -788,13 +767,13 @@ HD void scatter(Particle& p, int i_nuclide)
 
       // Check to make sure inelastic scattering reaction sampled
       if (i >= nuc->reactions_.size()) {
-#ifdef __CUDA_ARCH__
-        printf("unable to sampled inelastic scattering reaction!\n");
-        __trap();
-#else
-        p.write_restart();
-        fatal_error("Did not sample any reaction for nuclide " + nuc->name_);
-#endif
+	      // fallback to elastic scatter
+	       sampled=true;
+            xsfloat kT = nuc->multipole_ ? p.sqrtkT() * p.sqrtkT() : nuc->kTs_[i_temp];
+
+            // Perform collision physics for elastic scattering
+            elastic_scatter(i_nuclide, *nuc->reactions_[0], kT, p);
+	    break;
       }
 
       // if energy is below threshold for this reaction, skip it

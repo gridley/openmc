@@ -827,8 +827,23 @@ __global__ void  process_calculate_xs_events_device_wmp(
   }
   if constexpr (ForCollision) {
     if (cutoff != 1e9) {
-      printf("Failed to sample a collision nuclide!!");
-      __trap();
+	    p.event_nuclide() = 0;
+          NuclideMicroXS onstack;
+          onstack.index_sab = 0;
+          onstack.index_temp = 0;
+          onstack.index_temp_sab = 0;
+          onstack.index_grid = 0;
+          onstack.sab_frac = 0.0;
+          onstack.total = 1e-6;
+          onstack.elastic = 1e-6;
+          onstack.absorption = 0.0;
+          onstack.fission = 0.0;
+          onstack.nu_fission = 0.0;
+          onstack.interp_factor = 0.0;
+          onstack.use_ptable = false;
+          onstack.thermal = 0.0;
+          onstack.thermal_elastic = 0.0;
+          p.neutron_xs(0) = onstack;
     }
   }
 }

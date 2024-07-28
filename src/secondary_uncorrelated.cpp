@@ -62,7 +62,11 @@ UncorrelatedAngleEnergy::sample(xsfloat E_in, xsfloat& E_out, xsfloat& mu,
   }
 
   // Sample outgoing energy
-  E_out = energy_->sample(E_in, seed);
+  if (energy_) {
+    E_out = energy_->sample(E_in, seed);
+  } else {
+    E_out = E_in;
+  }
 }
 
 } // namespace openmc
