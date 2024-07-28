@@ -59,6 +59,7 @@ void NBodyPhaseSpace::sample(xsfloat E_in, xsfloat& E_out, xsfloat& mu,
     break;
   default:
 #ifdef __CUDA_ARCH__
+    printf("big ol nbdody?\n");
     asm("trap;");
 #else
     throw std::runtime_error{"N-body phase space with >5 bodies."};

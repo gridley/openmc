@@ -189,6 +189,7 @@ HD SourceSite IndependentSource::sample(uint64_t* seed, Particle* p) const
     // If not provided with a particle, we have to allocate on-the-fly
     if (!p) {
 #ifdef __CUDA_ARCH__
+	    printf("heyyyy\n");
       __trap();
 #else
       int err = openmc_find_cell(xyz, &cell_index, &instance);

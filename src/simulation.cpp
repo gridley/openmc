@@ -622,6 +622,7 @@ void initialize_history(Particle& p, int64_t index_source)
   if (p.coord(p.n_coord() - 1).cell == C_NONE) {
     if (!exhaustive_find_cell(p)) {
 #ifdef __CUDA_ARCH__
+	    printf("uhasdf;kja;sldkgj\n");
       __trap();
 #else
       p.mark_as_lost(

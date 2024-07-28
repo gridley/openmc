@@ -206,6 +206,7 @@ xsfloat Tabulated1D::operator()(xsfloat x) const
     return y0*exp(r*log(y1/y0));
   default:
 #ifdef __CUDA_ARCH__
+    printf("UGHUGH!\n");
     asm("trap;");
 #else
     throw std::runtime_error{"Invalid interpolation scheme."};

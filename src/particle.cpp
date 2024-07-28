@@ -332,6 +332,7 @@ Particle::event_revive_from_secondary()
   ++n_event();
   if (n_event() == MAX_EVENTS) {
 #ifdef __CUDA_ARCH__
+	  printf("guy 2\n");
     __trap();
 #else
     warning("Particle " + std::to_string(id()) +
@@ -487,7 +488,10 @@ Particle::cross_surface()
                    " crossed surface " + std::to_string(surf.id_) +
                    " it could not be located in any cell and it did not leak.");
 #else
-      __trap();
+      wgt() = 0.0;
+      return;
+    //  printf("guy 3\n");
+    //   __trap();
 #endif
       return;
     }
@@ -572,6 +576,7 @@ Particle::cross_reflective_bc(const Surface& surf, Direction new_u)
   n_coord() = 1;
   if (!neighbor_list_find_cell(*this)) {
 #ifdef __CUDA_ARCH__
+	  printf("guy 4\n");
     __trap();
 #else
     mark_as_lost("Couldn't find particle after reflecting from surface " +
@@ -631,6 +636,7 @@ Particle::cross_periodic_bc(const Surface& surf, Position new_r,
 
   if (!neighbor_list_find_cell(*this)) {
 #ifdef __CUDA_ARCH__
+	  printf("guy 1\n");
     __trap();
 #else
     mark_as_lost("Couldn't find particle after hitting periodic "

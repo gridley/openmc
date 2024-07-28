@@ -1178,6 +1178,7 @@ void sample_fission_neutron(int i_nuclide, const Reaction& rx, double E_in,
       fatal_error("Resampled energy distribution maximum number of times "
         "for nuclide " + nuc->name_);
 #else
+      printf("hmmm 1\n");
       __trap();
 #endif
     }

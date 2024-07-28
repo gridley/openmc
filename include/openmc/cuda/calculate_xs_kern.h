@@ -502,9 +502,9 @@ __global__ void  process_calculate_xs_events_device_wmp(
             nuclide.nu(E, EmissionMode::total) * micro.fission;
         }
 
-        if (isnan(abs) || isnan(fiss)) {
-          micro.total = 1e-4;
-          micro.absorption = 1e-4;
+        if (micro.total < 0.0 || isnan(micro.total) || isnan(abs) || isnan(fiss)) {
+          micro.total = 1e-6;
+          micro.absorption = 1e-6;
           micro.fission = 0.0;
           micro.nu_fission = 0.0;
           micro.elastic = 0.0;
@@ -658,7 +658,6 @@ __global__ void  process_calculate_xs_events_device_wmp(
           onstack.fission = 0.0;
           onstack.nu_fission = 0.0;
           onstack.interp_factor = 0.0;
-          onstack.use_ptable = false;
           onstack.thermal = 0.0;
           onstack.thermal_elastic = 0.0;
           p.neutron_xs(0) = onstack;

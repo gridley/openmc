@@ -252,6 +252,7 @@ xsfloat ContinuousTabular::sample(xsfloat E, uint64_t* seed) const
     }
   } else {
 #ifdef __CUDA_ARCH__
+	  printf("this guy broke\n");
     asm("trap;");
     return 0;
 #else

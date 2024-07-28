@@ -510,6 +510,7 @@ xsfloat Nuclide::nu(xsfloat E, EmissionMode mode, int group) const
     }
   }
 #ifdef __CUDA_ARCH__
+  printf("asdfasdf 123\n");
   asm("trap;");
   return -1;
 #else

@@ -87,6 +87,7 @@ double HD Cell::temperature(int32_t instance) const
 {
   if (sqrtkT_.size() < 1) {
 #ifdef __CUDA_ARCH__
+	  printf("dont do that\n");
     asm("trap;");
 #else
     throw std::runtime_error{"Cell temperature has not yet been set."};

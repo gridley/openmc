@@ -20,8 +20,11 @@ __global__ void process_collision_events_device(
     // NOTE there may be some differences with how we define CELL_BORN
     // here compared to CPU OpenMC.
     p.event_revive_from_secondary();
-    if (!exhaustive_find_cell(p))
-      __trap();
+    if (!exhaustive_find_cell(p)) {
+	    p.wgt() = 0.0; // just kill the particle
+     // printf("where did that little sucker go???\n");
+     //  __trap();
+    }
     if (gpu::c_micro_xs_caching)
       p.invalidate_neutron_xs();
   }

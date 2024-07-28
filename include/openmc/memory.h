@@ -393,8 +393,10 @@ public:
   {
 #ifdef __CUDA_ARCH__
     // This should not be called on the device if memory is held.
-    if (ptr || ptr_dev)
+    if (ptr || ptr_dev) {
+	    printf("MOVE UNIQUEPTR ON DEVICE WTf!!\n");
       __trap();
+    }
 #else
     free_mem();
 #endif
@@ -423,8 +425,10 @@ public:
   {
 #ifdef __CUDA_ARCH__
     // This should not be called on the device if memory is held.
-    if (ptr || ptr_dev)
+    if (ptr || ptr_dev) {
+	    printf("you done screwed up\n");
       __trap();
+    }
 #else
     free_mem();
 #endif

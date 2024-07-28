@@ -374,6 +374,7 @@ void HD cross_lattice(Particle& p, const BoundaryInfo& boundary)
     bool found = exhaustive_find_cell(p);
     if (!found && p.alive()) {
 #ifdef __CUDA_ARCH__
+	    printf("asdf asdf 123678\n");
       asm("trap;");
 #else
       p.mark_as_lost(fmt::format("Could not locate particle {} after "
@@ -461,6 +462,7 @@ HD BoundaryInfo distance_to_boundary(Particle& p)
 
       if (d_lat < 0) {
 #ifdef __CUDA_ARCH__
+	      printf("lattice??\n");
         __trap();
 #else
         p.mark_as_lost(fmt::format(
