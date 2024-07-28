@@ -417,6 +417,9 @@ __global__ void  process_calculate_xs_events_device_wmp(
           micro.last_sqrtkT = p.sqrtkT();
         }
 
+        bool lookup_pointwise = true;
+
+        // This reduces register use in the non-wmp kernel
         if constexpr (UseWMP) {
           if (nuclide.multipole_ && (E >= nuclide.multipole_->E_min_ && E <= nuclide.multipole_->E_max_)) {
             const auto& mp = *nuclide.multipole_;
@@ -538,8 +541,10 @@ __global__ void  process_calculate_xs_events_device_wmp(
               nuclide.fissionable_
                 ? micro.fission * nuclide.nu(E, EmissionMode::total)
                 : 0.0;
+            lookup_pointwise = false;
           }
-        } else { // lookup pointwise XS
+        }
+        if (lookup_pointwise) {
 
           // Find the appropriate temperature index. why would someone use
           // nearest?
