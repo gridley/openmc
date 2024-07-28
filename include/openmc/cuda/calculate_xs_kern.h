@@ -17,6 +17,30 @@
 namespace openmc {
 namespace gpu {
 
+__device__ double sample_nig(double alpha, double beta, double mu, double delta2, uint64_t* seed) {
+
+  double u1 = prn(seed);
+  double u2 = prn(seed);
+  double R = std::sqrt(-2.0 * std::log(u1));
+  double phi = 2.0 * M_PI * u2;
+
+  // Two independent normal variates are obtained:
+  double nv1 = R * std::cos(phi);
+  double nv2 = R * std::sin(phi);
+
+  // Sample the inverse Gaussian distribution, z
+  double mu_ig = std::sqrt(delta2 / (alpha*alpha-beta*beta));
+  double w = mu_ig * nv1 * nv1;
+  double c = 0.5 * mu_ig / delta2;
+  double z = mu_ig + c * (w - std::sqrt(w*(4*delta2+w)));
+  if (prn(seed) >= mu_ig / (mu_ig + z)) {
+    z = mu_ig * mu_ig / z;
+  }
+
+  // Sample the NIG distribution, which is a mixture over IGs
+  return std::sqrt(z) * nv2 + beta * z + mu;
+}
+
 __device__ inline thrust::complex<double> zpf8h_faddeeva(thrust::complex<double> z)
 {
   double flip_real_part =
@@ -403,133 +427,95 @@ __global__ void  process_calculate_xs_events_device_wmp(
       micro.thermal_elastic = 0.0;
       micro.elastic = CACHE_INVALID;
 
-      if constexpr (UseWMP) {
-        if (nuclide.multipole_ && (E >= nuclide.multipole_->E_min_ && E <= nuclide.multipole_->E_max_)) {
-          const auto& mp = *nuclide.multipole_;
-          constexpr double gSQRT_PI = 1.7724538509055159927;
 
-          // TODO could just use micro cache variables here
-          double sig_s = 0.0;
-          double sig_a = 0.0;
-          double sig_f = 0.0;
+      // Find the appropriate temperature index. why would someone use
+      // nearest?
+      xsfloat kT = p.sqrtkT() * p.sqrtkT();
 
-          // calculate multipole stuff...
-          const double sqrtE = std::sqrt(E);
-          const double invE = 1.0 / E;
-          const unsigned i_window =
-            std::min(static_cast<unsigned>(mp.window_info_.size() - 1),
-              static_cast<unsigned>(
-                (sqrtE - std::sqrt(mp.E_min_)) * mp.inv_spacing_));
-          const auto& window {mp.window_info_[i_window]};
-
-          if (p.sqrtkT() > 0.0 && window.broaden_poly) {
-            // Broaden the curvefit.
-            double dopp = mp.sqrt_awr_ / p.sqrtkT();
-            array<double, WindowedMultipole::MAX_POLY_COEFFICIENTS>
-              broadened_polynomials;
-
-            // Broaden WMP polynomials (TODO replace with recursive version)
-            const double beta = sqrtE * dopp;
-            const double half_inv_dopp2 = 0.5 / (dopp * dopp);
-            const double quarter_inv_dopp4 = half_inv_dopp2 * half_inv_dopp2;
-            double erf_beta;
-            double exp_m_beta2;
-
-            if (beta > 6.0) {
-              // Save time, ERF(6) is 1 to machine precision.
-              // beta/sqrtpi*exp(-beta**2) is also approximately 1 machine
-              // epsilon.
-              erf_beta = 1.;
-              exp_m_beta2 = 0.;
-            } else {
-              erf_beta = std::erf(beta);
-              exp_m_beta2 = std::exp(-beta * beta);
-            }
-
-            broadened_polynomials[0] = erf_beta / E;
-            broadened_polynomials[1] = 1. / sqrtE;
-            broadened_polynomials[2] =
-              broadened_polynomials[0] * (half_inv_dopp2 + E) +
-              exp_m_beta2 / (beta * gSQRT_PI);
-            broadened_polynomials[3] =
-              broadened_polynomials[1] * (E + 3.0 * half_inv_dopp2);
-            const int n = mp.fit_order_ + 1;
-            for (int i = 1; i < n - 3; i++) {
-              double ip1_dbl = i + 1;
-              broadened_polynomials[i + 3] =
-                -broadened_polynomials[i - 1] * (ip1_dbl - 1.) * ip1_dbl *
-                  quarter_inv_dopp4 +
-                broadened_polynomials[i + 1] *
-                  (E + (1. + 2. * ip1_dbl) * half_inv_dopp2);
-            }
-
-            for (int i_poly = 0; i_poly < mp.fit_order_ + 1; ++i_poly) {
-              sig_s += mp.curvefit_(i_window, i_poly).fit_s *
-                       broadened_polynomials[i_poly];
-              sig_a += mp.curvefit_(i_window, i_poly).fit_a *
-                       broadened_polynomials[i_poly];
-              if (mp.fissionable_) {
-                sig_f += mp.curvefit_(i_window, i_poly).fit_f *
-                         broadened_polynomials[i_poly];
-              }
-            }
-          } else {
-            // Evaluate as if it were a polynomial
-            double temp = invE;
-            for (int i_poly = 0; i_poly < mp.fit_order_ + 1; ++i_poly) {
-              sig_s += mp.curvefit_(i_window, i_poly).fit_s * temp;
-              sig_a += mp.curvefit_(i_window, i_poly).fit_a * temp;
-              if (mp.fissionable_) {
-                sig_f += mp.curvefit_(i_window, i_poly).fit_f * temp;
-              }
-              temp *= sqrtE;
-            }
+      if (gpu::urr_ptables_on && nuclide.has_urr_ && nuclide.urr.energy_in_bounds(E)) {
+        double T = kT / K_BOLTZMANN;
+        constexpr double urr_temperatures[6] = {250.0, 294.0, 600.0, 900.0, 1200.0, 2500.0};
+        int i_T;
+        for (i_T=0; i_T<6; ++i_T) {
+          if (urr_temperatures[i_T] > T) {
+            break;
           }
-
-          // Add in pole contributions
-          if (p.sqrtkT() == 0.0) {
-            for (int i_pole = window.index_start; i_pole <= window.index_end;
-                 ++i_pole) {
-              const thrust::complex<double> minus_i(0.0, -1.0);
-              const thrust::complex<double> psi_chi =
-                minus_i / (mp.data_[i_pole].ea - sqrtE);
-              const thrust::complex<double> c_temp = psi_chi * invE;
-              sig_s += (mp.data_[i_pole].rs * c_temp).real();
-              sig_a += (mp.data_[i_pole].ra * c_temp).real();
-              if (mp.fissionable_) {
-                sig_f += (mp.data_[i_pole].rf * c_temp).real();
-              }
-            }
-          } else {
-            const double dopp = mp.sqrt_awr_ / p.sqrtkT();
-            for (int i_pole = window.index_start; i_pole <= window.index_end;
-                 ++i_pole) {
-              const thrust::complex<double> z =
-                (sqrtE - mp.data_[i_pole].ea) * dopp;
-              const thrust::complex<double> w_val =
-                zpf8h_faddeeva(z) * dopp * invE * gSQRT_PI;
-              sig_s += (mp.data_[i_pole].rs * w_val).real();
-              sig_a += (mp.data_[i_pole].ra * w_val).real();
-              if (mp.fissionable_) {
-                sig_f += (mp.data_[i_pole].rf * w_val).real();
-              }
-            }
-          }
-
-          micro.total = sig_s + sig_a;
-          micro.elastic = sig_s;
-          micro.absorption = sig_a;
-          micro.fission = sig_f;
-          micro.nu_fission =
-            nuclide.fissionable_
-              ? micro.fission * nuclide.nu(E, EmissionMode::total)
-              : 0.0;
         }
-      } else { // lookup pointwise XS
 
-        // Find the appropriate temperature index. why would someone use
-        // nearest?
-        xsfloat kT = p.sqrtkT() * p.sqrtkT();
+        int energy_index = lower_bound_index(nuclide.urr.energy_.begin(), nuclide.urr.energy_.end(), E);
+
+	// Form a unique RNG seed that corresponds perfectly to the particle's current energy and nuclide
+	double baseval = static_cast<double>(1e12 * i_nuclide) + E * 1e8;
+	uint64_t * fseed = reinterpret_cast<uint64_t*>(&baseval);
+	// Advance the prn once to remove any possible correlations
+	prn(fseed);
+
+	// get the parameters for the distribution
+	double f = (E - nuclide.urr.energy_[energy_index]) /
+	        (nuclide.urr.energy_[energy_index + 1] - nuclide.urr.energy_[energy_index]);
+ 
+        double a = (1.0-f)*  nuclide.urr.alpha(energy_index, i_T) + f*nuclide.urr.alpha(energy_index+1, i_T);
+        double b = (1.0-f)*  nuclide.urr.beta(energy_index, i_T) +  f*nuclide.urr.beta(energy_index+1, i_T);
+        double m = (1.0-f)*  nuclide.urr.mu(energy_index, i_T)   +  f*nuclide.urr.mu(energy_index+1, i_T);
+        double d2 = (1.0-f)* nuclide.urr.delta2(energy_index, i_T)+ f*nuclide.urr.delta2(energy_index+1, i_T);
+        micro.total = sample_nig(0.5 * (a + b), -0.5 * (b - a), m, d2, fseed);
+
+	// Compute the conditional expectations of the partials
+        constexpr int bary_order = 5;
+        double denom = 0.0;
+        double abs = 0.0; // note "abs" is actually referring to capture here
+        double fiss = 0.0;
+      
+        // Evaluated at next higher grid
+        double abs2 = 0.0;
+        double fiss2 = 0.0;
+      
+        for (int j=0; j<bary_order; ++j) {
+          double term = nuclide.urr.weights(energy_index, j) / (micro.total - nuclide.urr.nodes(energy_index, j));
+          abs += nuclide.urr.abs_values(energy_index, j, i_T) * term;
+          if (nuclide.urr.has_fission_)
+            fiss += nuclide.urr.fiss_values(energy_index, j, i_T) * term;
+          denom += term;
+        }
+        abs /= denom;
+        fiss /= denom;
+      
+        denom = 0.0;
+        for (int j=0; j<bary_order; ++j) {
+          double term = nuclide.urr.weights(energy_index+1, j) / (micro.total - nuclide.urr.nodes(energy_index+1, j));
+          abs2 += nuclide.urr.abs_values(energy_index+1, j, i_T) * term;
+          if (nuclide.urr.has_fission_)
+            fiss2 += nuclide.urr.fiss_values(energy_index+1, j, i_T) * term;
+          denom += term;
+        }
+        abs2 /= denom;
+        fiss2 /= denom;
+      
+        micro.fission = fiss * (1.0 - f) + fiss2 * f;
+
+        micro.absorption = abs * (1.0 - f) + abs2 * f + micro.fission;
+        micro.elastic = micro.total - micro.absorption;
+
+        // Determine nu-fission cross-section
+        if (nuclide.fissionable_) {
+          micro.nu_fission =
+            nuclide.nu(E, EmissionMode::total) * micro.fission;
+        }
+
+        if (isnan(abs) || isnan(fiss)) {
+          micro.total = 1e-4;
+          micro.absorption = 1e-4;
+          micro.fission = 0.0;
+          micro.nu_fission = 0.0;
+          micro.elastic = 0.0;
+          return;
+        }
+
+	// Just gives some reasonable values here
+	//
+	micro.index_temp = 0;
+	micro.index_grid = 0;
+      } else {
 
         switch (gpu::temperature_method) {
         case TemperatureMethod::NEAREST: {
@@ -619,28 +605,8 @@ __global__ void  process_calculate_xs_events_device_wmp(
           micro.elastic = thermal + (1.0 - micro.sab_frac) * micro.elastic;
           micro.index_temp_sab = i_temp;
         }
+      }
 
-        // Calculate URR cross sections if needed
-        if (gpu::urr_ptables_on && nuclide.urr_present_) {
-
-            // TODO FINISH THE URR LOOKUP PART!!!
-
-            // micro.elastic = elastic;
-            // micro.absorption = capture + fission;
-            // micro.fission = fission;
-            // micro.total = elastic + inelastic + capture + fission;
-
-            // if (simulation::need_depletion_rx) {
-            //   micro.reaction[0] = capture;
-            // }
-
-            // Determine nu-fission cross-section
-            if (nuclide.fissionable_) {
-              micro.nu_fission =
-                nuclide.nu(E, EmissionMode::total) * micro.fission;
-            }
-          }
-        }
 
         // TODO remove reference here probably
         double const& atom_density = m.atom_density_[i_nuclide];

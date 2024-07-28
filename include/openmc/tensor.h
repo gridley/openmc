@@ -194,7 +194,12 @@ public:
 
     // NOTE: this is not guaranteed to work, since shape()
     // may not be contiguous storage.
-    resize(&view.shape()[0]);
+    auto new_size = &view.shape()[0];
+    size_type num_elements1 = total_size(new_size);
+    if (num_elements1 > capacity_)
+      reserve(new_size);
+    for (int i = 0; i < Rank; ++i)
+      size_[i] = new_size[i];
     auto num_el = num_elements();
     for (unsigned i = 0; i < num_el; ++i)
       begin_[i] = view(i);
@@ -349,7 +354,8 @@ public:
   }
 
 private:
-  HD size_type total_size(const size_type* values)
+  template<typename SizeType>
+  HD size_type total_size(const SizeType* values)
   {
     size_type result = 1;
     for (int i = 0; i < Rank; ++i) {
@@ -360,7 +366,8 @@ private:
 
   // Construct, default-initializing elements in a tensor of
   // length new_size. Does no checking on the argument.
-  HOST void reserve(const size_type* new_size, const T& value = T())
+  template <typename SizeType>
+  HOST void reserve(const SizeType* new_size, const T& value = T())
   {
     size_type num_elements = 1;
     for (int i = 0; i < Rank; ++i)

@@ -21,32 +21,34 @@ class ContinuousURRData {
 public:
   ContinuousURRData(const std::string& filename, int index);
   ContinuousURRData() = default;
+  ContinuousURRData(ContinuousURRData&& other) noexcept = default;
+  ContinuousURRData& operator=(ContinuousURRData&& other) noexcept = default;
 
   HD bool energy_in_bounds(double E) const
   {
-    return energy_.front() < E && E < energy_.back();
+    return Elo_ < E && E < Ehi_;
   }
 
-  // This takes the actual value of energy as the first argument, the temperature
-  // index as the second, and the URR stream seed pointer as third. The temperature
-  // is passed as an index rather than a value because the temperature grid is shared
-  // across all nuclides.
+  // This is manually inlined in the XS lookup kernel
   // HD void sample(double E, int i_T, uint64_t* seed, NuclideMicroXS& xs);
 
-private:
+  // These are cached to avoid unnecessary global memory accesses
+  double Elo_ {0.0};
+  double Ehi_ {0.0};
+
   vector<double> energy_; //!< incident energies
   bool has_fission_ {false};
 
-  xt::xtensor<double, 2> alpha;
-  xt::xtensor<double, 2> beta;
-  xt::xtensor<double, 2> mu;
-  xt::xtensor<double, 2> delta2;
+  tensor<double, 2> alpha;
+  tensor<double, 2> beta;
+  tensor<double, 2> mu;
+  tensor<double, 2> delta2;
 
   // Conditional partial values
-  xt::xtensor<double, 2> nodes;
-  xt::xtensor<double, 2> weights;
-  xt::xtensor<double, 3> abs_values;
-  xt::xtensor<double, 3> fiss_values;
+  tensor<double, 2> nodes;
+  tensor<double, 2> weights;
+  tensor<double, 3> abs_values;
+  tensor<double, 3> fiss_values;
 
   // Copy of the nuclide index for LCG stream reasons
   int index_;

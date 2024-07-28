@@ -11,6 +11,7 @@
 #include "openmc/random_lcg.h"
 #include "openmc/search.h"
 #include "openmc/settings.h"
+#include "openmc/memory.h"
 #include "openmc/simulation.h"
 #include "openmc/string_utils.h"
 #include "openmc/thermal.h"
@@ -223,14 +224,13 @@ Nuclide::Nuclide(hid_t group, const vector<xsfloat>& temperature)
 
   // Read unresolved resonance probability tables if present
   if (object_exists(group, "urr")) {
-    urr_present_ = true;
     // Look at this awesome coding practice.. listen, I just wanna graduate
     std::string basepath = "/home/ubuntu/openmc-requirements/urr_hdf5/";
     std::string ext = ".hdf5";
     std::string fname = basepath + name_ + ext;
     if (fileExists(fname)) {
-      // continuous_urr_ = std::move(ContinuousURRData(fname, index_));
-      continuous_urr_ = ContinuousURRData(fname, index_); // copy constructor, icky, but whatever
+      urr = ContinuousURRData(fname, index_);
+      has_urr_ = true;
     } else {
       warning("    Skipping URR for nuclide ^^");
     }

@@ -117,8 +117,8 @@ public:
   vector<xsfloat> xs_cdf_;
 
   // Unresolved resonance range information
-  bool urr_present_ {false};
-  ContinuousURRData continuous_urr_;
+  bool has_urr_ {false};
+  ContinuousURRData urr;
 
   vector<unique_ptr<Reaction>> reactions_; //!< Reactions
   array<size_t, 902> reaction_index_;      //!< Index of each reaction

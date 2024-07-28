@@ -8,41 +8,6 @@
 namespace openmc {
 
 ContinuousURRData::ContinuousURRData(const std::string& filename, int index) {
-  //  printf("About to open the file: %s\n", filename.c_str());
-  //  hid_t h5file = file_open(filename.c_str(), 'r', false);
-  //  
-  //  printf("About to open group: total_xs_parameters\n");
-  //  hid_t h5curvefit = open_group(h5file, "total_xs_parameters");
-
-  //  printf("About to open group: conditional_partials\n");
-  //  hid_t h5conditionals = open_group(h5file, "conditional_partials");
-
-  //  printf("About to read dataset: alpha\n");
-  //  read_dataset(h5curvefit, "alpha", alpha, true);
-
-  //  printf("About to read dataset: beta\n");
-  //  read_dataset(h5curvefit, "beta", beta, true);
-
-  //  printf("About to read dataset: mu\n");
-  //  read_dataset(h5curvefit, "mu", mu, true);
-
-  //  printf("About to read dataset: delta2\n");
-  //  read_dataset(h5curvefit, "delta2", delta2, true);
-
-  //  printf("About to read dataset: x_values\n");
-  //  read_dataset(h5conditionals, "x_values", nodes, true);
-
-  //  printf("About to read dataset: w_values\n");
-  //  read_dataset(h5conditionals, "w_values", weights, true);
-
-  //  printf("About to read dataset: absorption\n");
-  //  read_dataset(h5conditionals, "absorption", abs_values, true);
-
-  //  if (object_exists(h5conditionals, "fission")) {
-  //      printf("Dataset 'fission' exists. About to read dataset: fission\n");
-  //      read_dataset(h5conditionals, "fission", fiss_values, true);
-  //      has_fission_ = true;
-  //  }
 
   hid_t h5file = file_open(filename.c_str(), 'r', false);
   hid_t h5curvefit = open_group(h5file, "total_xs_parameters");
@@ -66,32 +31,11 @@ ContinuousURRData::ContinuousURRData(const std::string& filename, int index) {
   // Save the nuclide index to keep the same LCG stream between lookups
   // at this energy.
   index_ = index;
+
+  Elo_ = energy_.front();
+  Ehi_ = energy_.back();
 }
 
-// Samples an inverse Gaussian random variable
-// HD double sample_ig(double mu, double lam, uint64_t* seed) {
-// 
-//   // This implementation of normal_variate takes an
-//   // undefined number of prn() calls, so the URR state
-//   // is fast-forwarded assuming around 100 times. There
-//   // might be VERY small correlations, but not likely anything
-//   // that matters for particle transport.
-//   double w = mu * std::pow(normal_variate(0.0, 1.0, seed), 2);
-//   double c = 0.5 * mu / lam;
-//   double x1 = mu + c * (w - std::sqrt(w*(4*lam+w)));
-//   double x = x1;
-//   if (prn(seed) >= mu / (mu + x1)) {
-//     x = mu * mu / x1;
-//   }
-//   return x;
-// }
-
-// Samples a normal inverse Gaussian random variable
-// HD double sample_nig(double alpha, double beta, double mu, double delta2, uint64_t* seed) {
-//   // assert(std::abs(alpha) > std::abs(beta));
-//   double z = sample_ig(std::sqrt(delta2 / (alpha*alpha-beta*beta)), delta2, seed);
-//   return std::sqrt(z) * normal_variate(0.0, 1.0, seed) + beta * z + mu;
-// }
 
 // void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS& xs) {
 // 

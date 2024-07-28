@@ -571,7 +571,7 @@ HD Reaction& sample_fission(int i_nuclide, Particle& p)
   // If we're in the URR, by default use the first fission reaction. We also
   // default to the first reaction if we know that there are no partial fission
   // reactions
-  if (nuc->urr_present_ || !nuc->has_partial_fission_) {
+  if (nuc->has_urr_ || !nuc->has_partial_fission_) {
     return *nuc->fission_rx_[0];
   }
 

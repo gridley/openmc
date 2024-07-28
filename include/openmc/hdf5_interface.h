@@ -373,7 +373,6 @@ void read_dataset(hid_t obj_id, const char* name, xt::xtensor<T, N>& arr,
   arr = xarr;
 }
 
-// TODO make sure this actually works!!
 template<typename T, int N>
 void read_dataset(
   hid_t obj_id, const char* name, tensor<T, N>& arr, bool indep = false)
@@ -384,19 +383,20 @@ void read_dataset(
   auto hsize_t_shape = object_shape(dset);
   close_dataset(dset);
 
+  // cast from hsize_t to size_t
+  std::vector<size_t> shape(hsize_t_shape.size());
+  for (int i = 0; i < shape.size(); i++) {
+    shape[i] = static_cast<size_t>(hsize_t_shape[i]);
+  }
+
   // cast from hsize_t to int
   if (hsize_t_shape.size() != N)
     fatal_error(
       "Attempt to read openmc::tensor with rank not matching HDF5 data.");
-  std::array<typename tensor<T, N>::size_type, N> new_size;
-  for (int i = 0; i < N; ++i) {
-    new_size[i] = hsize_t_shape[i]; // converting from hsize to size_type
-  }
-  arr.resize(new_size);
 
-  // Read data from attribute
-  read_dataset_lowlevel(
-    dset, nullptr, H5TypeMap<T>::type_id, H5S_ALL, indep, arr.data());
+  xt::xarray<T> xarr(shape);
+  read_dataset(obj_id, name, xarr);
+  arr = xarr;
 }
 
 // overload for Position
