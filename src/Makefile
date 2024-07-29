@@ -12,7 +12,7 @@
 # a non-LTO GPU OpenMC.
 
 NVCC=/usr/bin/nvcc
-ARCH=sm_80
+ARCH=sm_90
 INCLUDE=/home/ubuntu/openmc-requirements/.local/include
 LINKMETHOD=-dlto
 COMPILE_OPTIONS=-forward-unknown-to-host-compiler -DGIT_SHA1=\"definitelyIncorrectSHA\" -DGSL_THROW_ON_CONTRACT_VIOLATION -DHD="__host__ __device__" -Dgsl_CONFIG_ALLOWS_NONSTRICT_SPAN_COMPARISON=1 -Dgsl_CONFIG_DEFAULTS_VERSION=1 -Dlibopenmc_EXPORTS  -arch=$(ARCH) $(LINKMETHOD) -DH5Oget_info_by_idx_vers=1 -DH5O_info_t_vers=1 -fopenmp -O2 -fno-omit-frame-pointer -Xptxas=-dlcm=ca --expt-relaxed-constexpr -std=c++14 -x cu -Dxsfloat=double -DHOST=__host__ -DHD="__host__ __device__" -DMANAGED=__managed__ -I$(INCLUDE) -I../include -I/usr/include/hdf5/serial -L/home/ubuntu/openmc-requirements/.local/lib -L/usr/lib/x86_64-linux-gnu/hdf5/serial

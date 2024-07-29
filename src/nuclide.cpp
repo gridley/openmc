@@ -225,7 +225,7 @@ Nuclide::Nuclide(hid_t group, const vector<xsfloat>& temperature)
   // Read unresolved resonance probability tables if present
   if (object_exists(group, "urr")) {
     // Look at this awesome coding practice.. listen, I just wanna graduate
-    std::string basepath = "/home/ubuntu/openmc-requirements/urr_hdf5/";
+    std::string basepath = "/home/ubuntu/urr_hdf5/";
     std::string ext = ".hdf5";
     std::string fname = basepath + name_ + ext;
     if (fileExists(fname)) {
