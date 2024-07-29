@@ -1,3 +1,4 @@
+openmc
 # Compiled objects and modules
 *.a
 *.o
