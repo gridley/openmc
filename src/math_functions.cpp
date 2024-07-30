@@ -9,7 +9,7 @@ namespace openmc {
 // Mathematical methods
 //==============================================================================
 
-double normal_percentile(double p)
+HD double normal_percentile(double p)
 {
   constexpr double p_low = 0.02425;
   constexpr double a[6] = {-3.969683028665376e1, 2.209460984245205e2,

@@ -26,6 +26,9 @@ typedef std::complex<double> complx;
 
 namespace openmc {
 
+// A special flag for when MARS should fall back to CXS
+constexpr double MARS_SAMPLE_CXS = {123456789e100};
+
 //========================================================================
 // Constants
 //========================================================================
@@ -106,6 +109,9 @@ public:
   tensor<CurveFitData, 2>
     curvefit_; // Curve fit coefficients (window, poly order, reaction)
   vector<PoleData> data_; //!< Poles and residues
+
+  // For MARS method
+  HD double sample_target_relative_speed(const double& E, const double& kT, uint64_t* seed) const;
 
   // Constant data
   static constexpr int MAX_POLY_COEFFICIENTS =

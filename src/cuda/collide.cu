@@ -1,9 +1,15 @@
+#include <cmath>
+#include <thrust/complex.h>
+
 #include "openmc/cuda/atomic_agg_inc.h"
 #include "openmc/cuda/collide.h"
 #include "openmc/geometry.h"
 
+
 namespace openmc {
 namespace gpu {
+
+
 
 __global__ void process_collision_events_device(
   EventQueueItem* __restrict__ queue,

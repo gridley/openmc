@@ -101,7 +101,6 @@ int max_order {0};
 int n_log_bins {8000};
 int n_batches;
 int n_max_batches;
-ResScatMethod res_scat_method {ResScatMethod::rvs};
 double res_scat_energy_min {0.01};
 double res_scat_energy_max {1000.0};
 vector<string> res_scat_nuclides;
@@ -131,7 +130,6 @@ namespace gpu {
 __constant__ double weight_cutoff;
 __constant__ double weight_survive;
 __constant__ bool survival_biasing;
-__constant__ ResScatMethod res_scat_method;
 __constant__ double res_scat_energy_min;
 __constant__ double res_scat_energy_max;
 __constant__ RunMode run_mode;
@@ -782,19 +780,6 @@ void read_settings_xml()
       res_scat_on = true;
     }
 
-    // Determine what method is used
-    if (check_for_node(node_res_scat, "method")) {
-      auto temp = get_node_value(node_res_scat, "method", true, true);
-      if (temp == "rvs") {
-        res_scat_method = ResScatMethod::rvs;
-      } else if (temp == "dbrc") {
-        res_scat_method = ResScatMethod::dbrc;
-      } else {
-        fatal_error("Unrecognized resonance elastic scattering method: "
-          + temp + ".");
-      }
-    }
-
     // Minimum energy for resonance scattering
     if (check_for_node(node_res_scat, "energy_min")) {
       res_scat_energy_min = std::stod(get_node_value(node_res_scat, "energy_min"));
@@ -939,8 +924,6 @@ void copy_settings_to_gpu()
     gpu::weight_survive, &settings::weight_survive, sizeof(double));
   cudaMemcpyToSymbol(
     gpu::survival_biasing, &settings::survival_biasing, sizeof(bool));
-  cudaMemcpyToSymbol(
-    gpu::res_scat_method, &settings::res_scat_method, sizeof(ResScatMethod));
   cudaMemcpyToSymbol(
     gpu::res_scat_energy_min, &settings::res_scat_energy_min, sizeof(double));
   cudaMemcpyToSymbol(

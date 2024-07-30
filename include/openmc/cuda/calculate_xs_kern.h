@@ -1,6 +1,7 @@
 #pragma once
 
 #include <thrust/complex.h>
+#include <cmath>
 #include "openmc/event.h"
 #include "openmc/material.h"
 #include "openmc/memory.h"
@@ -273,6 +274,7 @@ __device__ inline thrust::complex<double> zpf8h_faddeeva(thrust::complex<double>
   return {flip_real_part * (num_re * den_re + num_im * den_im) / modulus,
     (num_im * den_re - num_re * den_im) / modulus};
 }
+
 
 // This class is a NuclideMicroXS (basically) when we want to use the
 // UseMicroCache=true option below, and otherwise contains nothing

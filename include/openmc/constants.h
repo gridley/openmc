@@ -259,9 +259,8 @@ constexpr int PARTIAL_FISSION_MAX {4};
 
 // Resonance elastic scattering methods
 enum class ResScatMethod {
-  rvs, // Relative velocity sampling
-  dbrc, // Doppler broadening rejection correction
-  cxs // Constant cross section
+  cxs, // Constant cross section
+  mars
 };
 
 enum class ElectronTreatment {

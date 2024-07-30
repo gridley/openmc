@@ -21,7 +21,7 @@ namespace openmc {
 //! \return The requested percentile
 //==============================================================================
 
-extern "C" double normal_percentile(double p);
+HD double normal_percentile(double p);
 
 //==============================================================================
 //! Calculate the percentile of the Student's t distribution with a specified
