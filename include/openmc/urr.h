@@ -76,7 +76,7 @@ public:
   // index as the second, and the URR stream seed pointer as third. The temperature
   // is passed as an index rather than a value because the temperature grid is shared
   // across all nuclides.
-  void sample(double E, int i_T, uint64_t* seed, NuclideMicroXS& xs);
+  void sample(double E, int i_T, uint64_t* seed, uint64_t* particle_seed, NuclideMicroXS& xs);
 
 private:
   vector<double> energy_; //!< incident energies

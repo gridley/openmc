@@ -840,7 +840,7 @@ void Nuclide::calculate_urr_xs(Particle& p) const
   if (prn(p.current_seed()) < frac) i_T--;
 
   calculate_elastic_xs(p);
-  continuous_urr_->sample(p.E(), i_T, &p.seeds(STREAM_URR_PTABLE), micro);
+  continuous_urr_->sample(p.E(), i_T, &p.seeds(STREAM_URR_PTABLE), p.current_seed(), micro);
 
   // Determine nu-fission cross-section
   if (fissionable_) {

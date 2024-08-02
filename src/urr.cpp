@@ -200,7 +200,7 @@ ContinuousURRData::ContinuousURRData(const std::string& filename, gsl::index ind
   index_ = index;
 }
 
-void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS& xs) {
+void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, uint64_t* particle_seed, NuclideMicroXS& xs) {
   // Look up the energy index to use here
   if (!energy_in_bounds(E)) {
     fatal_error("energy out of bounds in continuous URR");
@@ -215,8 +215,14 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   // energy interpolation factor. Using stochastic interpolation.
   double f = (E - energy_[energy_index]) /
         (energy_[energy_index + 1] - energy_[energy_index]);
-  if (prn(&fseed) < f) energy_index++;
 
+  // This is a seed used to do stochastic interpolation, and it is totally independent
+  // from the URR stream. This controls mixing between two energies. Within that mixing,
+  // the level of sampling should be the same!
+
+  // Stochastic interpolation. Note that this does not share the same stream between at
+  // a given energy between calls, whereas the URR percentile does.
+  if (prn(particle_seed) < f) energy_index++;
 
   double a = alpha(energy_index, i_T);
   double b = beta(energy_index, i_T);
@@ -225,7 +231,7 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
 
   double sigt = sample_nig(0.5 * (a + b), -0.5 * (b - a), m, d2, &fseed);
 
-  if (sigt <= 0.0 || isnan(sigt) ) {
+  if (sigt <= 0.0) {
     sigt = 1e-4;
     xs.total = 1e-4;
     xs.absorption = 1e-4;
@@ -252,27 +258,19 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, NuclideMicroXS
   abs /= denom;
   fiss /= denom;
   if (abs < 0.0) abs = 0.0;
-    // printf("negative absorption!\n");
   if (fiss < 0.0) fiss = 0.0;
-    // printf("negative fiss!\n");
 
-  if (isnan(abs) || isnan(fiss)) {
-    sigt = 1e-4;
-    xs.total = 1e-4;
-    xs.absorption = 1e-4;
+  // Handle very rare case to avoid propagating nan. This just forces a
+  // collision to happen to get out of this problematic energy.
+  if (isnan(abs) || isnan(fiss) || isnan(sigt)) {
+    sigt = 1e6;
+    xs.total = 1e6;
+    xs.absorption = 0.0;
     xs.fission = 0.0;
     xs.nu_fission = 0.0;
-    xs.elastic = 0.0;
+    xs.elastic = 1e6;
     return;
   }
-
-  // #pragma omp critical
-  //   {
-  //     double fval = fiss == 0.0? 1.0 : fiss / averages(energy_index, i_T, 2);
-  //     printf("%f %f %f\n", sigt / averages(energy_index, i_T, 0),
-  //         abs / averages(energy_index, i_T, 1),
-  //         fval);
-  //   }
 
   // Get the inelastic, whatever other reaction contributions
   double non_abs_non_el = xs.total - xs.absorption - xs.elastic;
