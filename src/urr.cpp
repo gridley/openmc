@@ -86,30 +86,40 @@ bool UrrData::has_negative() const
   }) || std::any_of(xs_values_.begin(), xs_values_.end(), xs_set_negative);
 }
 
-// Samples an inverse Gaussian random variable
-double sample_ig(double mu, double lam, uint64_t* seed) {
-
-  // This implementation of normal_variate takes an
-  // undefined number of prn() calls, so the URR state
-  // is fast-forwarded assuming around 100 times. There
-  // might be VERY small correlations, but not likely anything
-  // that matters for particle transport.
-  double w = mu * std::pow(normal_variate(0.0, 1.0, seed), 2);
-  double c = 0.5 * mu / lam;
-  double x1 = mu + c * (w - std::sqrt(w*(4*lam+w)));
-  double x = x1;
-  if (prn(seed) >= mu / (mu + x1)) {
-    x = mu * mu / x1;
-  }
-  return x;
-}
-
-// Samples a normal inverse Gaussian random variable
 double sample_nig(double alpha, double beta, double mu, double delta2, uint64_t* seed) {
-  assert(std::abs(alpha) > std::abs(beta));
-  double z = sample_ig(std::sqrt(delta2 / (alpha*alpha-beta*beta)), delta2, seed);
-  return std::sqrt(z) * normal_variate(0.0, 1.0, seed) + beta * z + mu;
+  if (std::abs(alpha) < std::abs(beta)) {
+    fatal_error("Bad alpha/beta found\n");
+  }
+  if (delta2 < 0.0) {
+    fatal_error("Bad delta2 found\n");
+  }
+
+  double u1 = prn(seed);
+  double u2 = prn(seed);
+  double R = std::sqrt(-2.0 * std::log(u1));
+  double phi = 2.0 * M_PI * u2;
+
+  // Two independent normal variates are obtained:
+  double nv1 = R * std::cos(phi);
+  double nv2 = R * std::sin(phi);
+
+  // Sample the inverse Gaussian distribution, z
+  double mu_ig = std::sqrt(delta2 / (alpha*alpha-beta*beta));
+  double w = mu_ig * nv1 * nv1;
+  double c = 0.5 * mu_ig / delta2;
+  double z = mu_ig + c * (w - std::sqrt(w*(4*delta2+w)));
+  if (prn(seed) >= mu_ig / (mu_ig + z)) {
+    z = mu_ig * mu_ig / z;
+  }
+
+  // Sample the NIG distribution, which is a mixture over IGs
+  double retval = std::sqrt(z) * nv2 + beta * z + mu;
+  if (isnan(retval)) {
+    printf("    nan in sample_nig!\n");
+  }
+  return retval;
 }
+
 
 ContinuousURRData::ContinuousURRData(const std::string& filename, gsl::index index) {
   hid_t h5file = file_open(filename.c_str(), 'r', false);
@@ -208,9 +218,8 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, uint64_t* part
 
   int energy_index = lower_bound_index(energy_.begin(), energy_.end(), E);
 
-  // We use more random numbers than in the single table case. It's
-  // an undefined number but quite likely less than 400.
-  uint64_t fseed = future_seed(static_cast<uint64_t>(400 * index_), *seed);
+  // We use more random numbers than in the single table case: 3
+  uint64_t fseed = future_seed(static_cast<uint64_t>(3 * index_), *seed);
 
   // energy interpolation factor. Using stochastic interpolation.
   double f = (E - energy_[energy_index]) /
@@ -234,10 +243,10 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, uint64_t* part
   if (sigt <= 0.0) {
     sigt = 1e-4;
     xs.total = 1e-4;
-    xs.absorption = 1e-4;
+    xs.absorption = 0.0;
     xs.fission = 0.0;
     xs.nu_fission = 0.0;
-    xs.elastic = 0.0;
+    xs.elastic = 1e-4;
     return;
   }
 
@@ -248,27 +257,46 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, uint64_t* part
   double abs = 0.0;
   double fiss = 0.0;
 
+  bool hit_node = false;
   for (int j=0; j<bary_order; ++j) {
+
+    // divide by zero check (exact interpolation in this case)
+    if (std::abs(sigt - nodes(energy_index, j)) < 1e-10) {
+      abs = abs_values(energy_index, j, i_T);
+      if (has_fission_)
+        fiss = fiss_values(energy_index, j, i_T);
+      hit_node = true;
+      break;
+    }
+    
     double term = weights(energy_index, j) / (sigt - nodes(energy_index, j));
     abs += abs_values(energy_index, j, i_T) * term;
     if (has_fission_)
       fiss += fiss_values(energy_index, j, i_T) * term;
     denom += term;
   }
-  abs /= denom;
-  fiss /= denom;
+
+  if (!hit_node) {
+    abs /= denom;
+    fiss /= denom;
+  }
+
+  if (denom == 0.0)
+    fatal_error("wtf zero denominator in barycentric?\n");
+
   if (abs < 0.0) abs = 0.0;
   if (fiss < 0.0) fiss = 0.0;
 
   // Handle very rare case to avoid propagating nan. This just forces a
   // collision to happen to get out of this problematic energy.
   if (isnan(abs) || isnan(fiss) || isnan(sigt)) {
-    sigt = 1e6;
-    xs.total = 1e6;
+    printf("    caught a nan!\n");
+    sigt = 1;
+    xs.total = 1;
     xs.absorption = 0.0;
     xs.fission = 0.0;
     xs.nu_fission = 0.0;
-    xs.elastic = 1e6;
+    xs.elastic = 1;
     return;
   }
 
@@ -300,6 +328,7 @@ void ContinuousURRData::sample(double E, int i_T, uint64_t* seed, uint64_t* part
 
   xs.total = xs.absorption + xs.elastic + non_abs_non_el;
   if (isnan(xs.total)) {
+    printf("    caught another nan\n");
     sigt = 1e-4;
     xs.total = 1e-4;
     xs.absorption = 1e-4;
